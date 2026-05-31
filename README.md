@@ -48,6 +48,7 @@ docker compose -f infra/docker-compose.yml up --build
 | `OPENAI_API_KEY` | Enables Whisper transcription and GPT summaries/chapters | `sk-...` |
 | `GOOGLE_CLIENT_ID` | Google OAuth web client ID | `...apps.googleusercontent.com` |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth web client secret | `...` |
+| `BACKEND_URL` | Public backend URL used for the Google OAuth callback | `https://learnflow-api-1eef.onrender.com` |
 | `SECRET_KEY_BASE` | Phoenix signing/encryption secret | `replace-with-a-strong-64-byte-secret-key-base` |
 | `PHX_HOST` | Public Phoenix host | `localhost` |
 | `PORT` | Phoenix HTTP port | `4000` |
@@ -131,6 +132,7 @@ PHX_HOST=<your Railway public domain>
 PORT=4000
 FRONTEND_URL=https://<frontend-public-url>
 PUBLIC_URL=https://<frontend-public-url>
+BACKEND_URL=https://<backend-public-url>
 API_PUBLIC_URL=https://<backend-public-url>
 MINIO_ENDPOINT=<S3-compatible endpoint>
 MINIO_PUBLIC_ENDPOINT=<browser-accessible S3 endpoint>
@@ -158,6 +160,17 @@ URL_SCHEME=https
 ```
 
 5. Deploy. Railway will build from the Dockerfile and expose a public URL in about 5 minutes.
+
+### Render
+
+Set these environment variables on the Render backend service:
+
+```text
+BACKEND_URL=https://learnflow-api-1eef.onrender.com
+FRONTEND_URL=https://jarq.me
+```
+
+Add `https://learnflow-api-1eef.onrender.com/auth/google/callback` to the authorized redirect URIs of the Google OAuth web client.
 
 Deploying from the repository root uses [Dockerfile](/Users/bayel/Desktop/JARQ_03/learnflow/Dockerfile) for the backend. For separate backend and frontend Railway services, set the service root directories to `backend` and `frontend` respectively. The backend service can use [backend/Dockerfile](/Users/bayel/Desktop/JARQ_03/learnflow/backend/Dockerfile), and the frontend uses [frontend/Dockerfile](/Users/bayel/Desktop/JARQ_03/learnflow/frontend/Dockerfile) plus [frontend/nginx.conf](/Users/bayel/Desktop/JARQ_03/learnflow/frontend/nginx.conf).
 

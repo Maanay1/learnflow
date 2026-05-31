@@ -38,6 +38,7 @@ POSTGRES_USER=learnflow
 POSTGRES_PASSWORD=change-me
 DATABASE_URL=ecto://learnflow:change-me@postgres:5432/learnflow_prod
 SECRET_KEY_BASE=replace-with-strong-secret
+BACKEND_URL=https://$DOMAIN
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=replace-with-strong-minio-secret
 MINIO_PUBLIC_ENDPOINT=https://storage.example.com

@@ -166,7 +166,7 @@ defmodule LearnflowWeb.AuthController do
     end
   end
 
-  defp google_callback_url, do: "#{api_public_url()}/auth/google/callback"
-  defp api_public_url, do: System.get_env("API_PUBLIC_URL", "http://localhost:4000") |> String.trim_trailing("/")
+  defp google_callback_url, do: "#{backend_url()}/auth/google/callback"
+  defp backend_url, do: System.get_env("BACKEND_URL", "http://localhost:4000") |> String.trim_trailing("/")
   defp frontend_url, do: System.get_env("FRONTEND_URL", "http://localhost:3000") |> String.trim_trailing("/")
 end
