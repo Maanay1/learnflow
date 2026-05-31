@@ -4,6 +4,7 @@ ARG VITE_API_URL=http://localhost:4000
 ARG VITE_WS_URL=ws://localhost:4000/socket
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_WS_URL=$VITE_WS_URL
+ENV SVELTE_ADAPTER=static
 ENV NODE_ENV=development
 COPY package*.json ./
 RUN npm ci --include=dev --no-audit --no-fund

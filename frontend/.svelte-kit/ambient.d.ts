@@ -70,6 +70,7 @@ declare module '$env/static/private' {
 	export const CODEX_SANDBOX: string;
 	export const npm_package_json: string;
 	export const _: string;
+	export const LaunchInstanceID: string;
 	export const npm_config_userconfig: string;
 	export const npm_config_init_module: string;
 	export const __CFBundleIdentifier: string;
@@ -107,6 +108,7 @@ declare module '$env/static/private' {
 	export const OSLogRateLimit: string;
 	export const GIT_PAGER: string;
 	export const VSCODE_CWD: string;
+	export const SECURITYSESSIONID: string;
 	export const DEBUG: string;
 	export const npm_node_execpath: string;
 	export const npm_config_prefix: string;
@@ -231,6 +233,7 @@ declare module '$env/dynamic/private' {
 		CODEX_SANDBOX: string;
 		npm_package_json: string;
 		_: string;
+		LaunchInstanceID: string;
 		npm_config_userconfig: string;
 		npm_config_init_module: string;
 		__CFBundleIdentifier: string;
@@ -268,6 +271,7 @@ declare module '$env/dynamic/private' {
 		OSLogRateLimit: string;
 		GIT_PAGER: string;
 		VSCODE_CWD: string;
+		SECURITYSESSIONID: string;
 		DEBUG: string;
 		npm_node_execpath: string;
 		npm_config_prefix: string;

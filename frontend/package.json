@@ -13,6 +13,7 @@
     "@heroicons/react": "^2.2.0",
     "@sveltejs/adapter-node": "^5.2.0",
     "@sveltejs/adapter-static": "^3.0.10",
+    "@sveltejs/adapter-vercel": "^6.3.3",
     "@sveltejs/kit": "^2.5.0",
     "date-fns": "^4.3.0",
     "framer-motion": "^12.40.0",
