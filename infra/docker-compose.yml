@@ -58,6 +58,7 @@ services:
       MINIO_BUCKET_VIDEOS: learnflow-videos
       MINIO_BUCKET_THUMBNAILS: learnflow-thumbnails
       MINIO_BUCKET_CERTIFICATES: learnflow-certificates
+      MINIO_BUCKET_AVATARS: jarq-avatars
       SECRET_KEY_BASE: dev_secret_key_base_change_me_for_production_64_bytes_minimum
       PHX_HOST: localhost
       PORT: 4000

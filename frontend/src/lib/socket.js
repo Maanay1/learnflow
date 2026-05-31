@@ -49,10 +49,11 @@ export function connectConversation(conversationId, handlers = {}, socketToken =
   if (!conversationId) return { send: () => {}, read: () => {}, typing: () => {}, disconnect: () => {} };
   const socket = socketToken ? connectWithToken(socketToken) : connect();
   const channel = socket.channel(`conversation:${conversationId}`, {});
-  channel.join();
+  channel.join().receive('ok', (payload) => handlers.onJoin?.(payload));
   channel.on('new_message', (payload) => handlers.onMessage?.(payload.message));
   channel.on('typing', (payload) => handlers.onTyping?.(payload));
   channel.on('read', (payload) => handlers.onRead?.(payload));
+  channel.on('presence', (payload) => handlers.onPresence?.(payload));
 
   return {
     send: (payload) => channel.push('new_message', payload),

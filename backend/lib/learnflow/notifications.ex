@@ -111,12 +111,12 @@ defmodule Learnflow.Notifications do
     Swoosh.Email.new()
     |> Swoosh.Email.to({notification.user.display_name || notification.user.username, notification.user.email})
     |> Swoosh.Email.from(email_from())
-    |> Swoosh.Email.subject("LearnFlow: #{message}")
+    |> Swoosh.Email.subject("JARQ: #{message}")
     |> Swoosh.Email.html_body("""
     <div style="font-family:Inter,Arial,sans-serif;background:#0f0f0f;color:#f5f5f5;padding:32px">
-      <h1 style="color:#818cf8">LearnFlow</h1>
+      <h1 style="color:#818cf8">JARQ</h1>
       <p style="font-size:18px">#{message}</p>
-      <a href="#{base}" style="display:inline-block;background:#6366f1;color:white;padding:12px 18px;border-radius:8px;text-decoration:none">Открыть LearnFlow</a>
+      <a href="#{base}" style="display:inline-block;background:#6366f1;color:white;padding:12px 18px;border-radius:8px;text-decoration:none">Открыть JARQ</a>
       <p style="margin-top:24px;font-size:12px;color:#a3a3a3"><a href="#{unsubscribe}" style="color:#a3a3a3">Отписаться от email-уведомлений</a></p>
     </div>
     """)
@@ -124,7 +124,7 @@ defmodule Learnflow.Notifications do
   end
 
   defp email_from do
-    Application.get_env(:learnflow, :email_from, "LearnFlow <noreply@learnflow.dev>")
+    Application.get_env(:learnflow, :email_from, "JARQ <noreply@learnflow.dev>")
   end
 
   def text(%Notification{type: "new_follower", actor: actor}), do: "#{name(actor)} подписался на вас"

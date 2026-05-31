@@ -5,6 +5,8 @@ defmodule Learnflow.Accounts do
 
   import Ecto.Query
   alias Learnflow.Accounts.{Session, User}
+  alias Learnflow.Social.Follow
+  alias Learnflow.Videos.Video
   alias Learnflow.Repo
 
   @session_ttl_seconds 30 * 24 * 60 * 60
@@ -129,14 +131,21 @@ defmodule Learnflow.Accounts do
   end
 
   def update_profile(%User{} = user, attrs) do
+    attrs =
+      attrs
+      |> Enum.into(%{}, fn {key, value} -> {to_string(key), value} end)
+      |> Map.take(["username", "display_name", "bio"])
+
+    attrs = if Map.has_key?(attrs, "username"), do: Map.put(attrs, "username_set", true), else: attrs
+
     user
-    |> User.profile_changeset(Map.take(attrs, ["display_name", "bio", :display_name, :bio]))
+    |> User.profile_changeset(attrs)
     |> Repo.update()
   end
 
   def update_avatar(%User{} = user, avatar_key) do
     user
-    |> User.avatar_changeset(%{avatar_key: avatar_key})
+    |> User.avatar_changeset(%{avatar_key: avatar_key, avatar_url: nil})
     |> Repo.update()
   end
 
@@ -145,9 +154,14 @@ defmodule Learnflow.Accounts do
       changeset = User.password_changeset(user, %{password: new_password})
 
       Repo.transaction(fn ->
-        updated_user = Repo.update!(changeset)
-        Repo.delete_all(from s in Session, where: s.user_id == ^user.id)
-        updated_user
+        case Repo.update(changeset) do
+          {:ok, updated_user} ->
+            Repo.delete_all(from s in Session, where: s.user_id == ^user.id)
+            updated_user
+
+          {:error, changeset} ->
+            Repo.rollback(changeset)
+        end
       end)
     else
       Argon2.no_user_verify()
@@ -168,6 +182,46 @@ defmodule Learnflow.Accounts do
   def request_password_reset(_email), do: :ok
 
   def get_public_user(username), do: Repo.get_by(User, username: username)
+  def username_available?(username, current_user_id \\ nil)
+
+  def username_available?(username, current_user_id) when is_binary(username) do
+    valid? = String.match?(username, ~r/^[A-Za-z0-9_]{3,20}$/)
+
+    query =
+      from u in User,
+        where: fragment("lower(?)", u.username) == ^String.downcase(username)
+
+    query =
+      if current_user_id do
+        where(query, [u], u.id != ^current_user_id)
+      else
+        query
+      end
+
+    valid? and not Repo.exists?(query)
+  end
+
+  def username_available?(_, _), do: false
+
+  def search_users(query, viewer_id \\ nil) do
+    term = query |> to_string() |> String.trim()
+
+    if term == "" do
+      []
+    else
+      pattern = "%#{term}%"
+
+      User
+      |> where([u], ilike(u.username, ^pattern) or ilike(coalesce(u.display_name, ""), ^pattern))
+      |> order_by([u], asc: u.username)
+      |> limit(20)
+      |> Repo.all()
+      |> Enum.map(&decorate_search_user(&1, viewer_id))
+    end
+  end
+
+  def list_followers(user_id, viewer_id \\ nil), do: list_follow_users(:followers, user_id, viewer_id)
+  def list_following(user_id, viewer_id \\ nil), do: list_follow_users(:following, user_id, viewer_id)
 
   def export_user_data(%User{} = user) do
     comments = Repo.all(from c in Learnflow.Social.Comment, where: c.user_id == ^user.id)
@@ -186,6 +240,8 @@ defmodule Learnflow.Accounts do
       avatar_key: user.avatar_key,
       avatar_url: user.avatar_url,
       bio: user.bio,
+      inserted_at: user.inserted_at,
+      requires_username_setup: not user.username_set,
       is_creator: user.is_creator,
       is_verified: user.is_verified,
       stripe_onboarding_complete: user.stripe_onboarding_complete,
@@ -207,7 +263,8 @@ defmodule Learnflow.Accounts do
       avatar_url: attrs[:avatar_url],
       google_id: attrs.google_id,
       password_hash: Argon2.hash_pwd_salt(generate_random_password()),
-      is_verified: true
+      is_verified: true,
+      username_set: false
     })
     |> Repo.insert()
   end
@@ -231,6 +288,28 @@ defmodule Learnflow.Accounts do
   end
 
   defp generate_random_password, do: :crypto.strong_rand_bytes(32) |> Base.encode64()
+
+  defp decorate_search_user(user, viewer_id) do
+    public_user(user)
+    |> Map.merge(%{
+      followers_count: Repo.one(from f in Follow, where: f.following_id == ^user.id, select: count()),
+      following_count: Repo.one(from f in Follow, where: f.follower_id == ^user.id, select: count()),
+      videos_count: Repo.one(from v in Video, where: v.creator_id == ^user.id and v.status == "active", select: count()),
+      is_following: viewer_id && Repo.exists?(from f in Follow, where: f.follower_id == ^viewer_id and f.following_id == ^user.id)
+    })
+  end
+
+  defp list_follow_users(kind, user_id, viewer_id) do
+    query =
+      case kind do
+        :followers -> from f in Follow, join: u in User, on: u.id == f.follower_id, where: f.following_id == ^user_id, select: u
+        :following -> from f in Follow, join: u in User, on: u.id == f.following_id, where: f.follower_id == ^user_id, select: u
+      end
+
+    query
+    |> Repo.all()
+    |> Enum.map(&decorate_search_user(&1, viewer_id))
+  end
 
   defp account_locked?(%User{locked_until: nil}), do: false
   defp account_locked?(%User{locked_until: locked_until}), do: DateTime.compare(locked_until, utc_now()) == :gt

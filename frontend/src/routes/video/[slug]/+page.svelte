@@ -19,7 +19,7 @@
   async function save() { saved = !saved; await (saved ? social.save(video.id) : social.unsave(video.id)).catch(() => (saved = !saved)); }
   async function comment() { const body = commentText.trim(); if (!body) return; commentText = ''; const result = await social.comment(video.id, body).catch(() => null); if (result?.comment) comments = [result.comment, ...comments]; }
 </script>
-<svelte:head><title>{video?.title || 'Видео'} | LearnFlow</title></svelte:head>
+<svelte:head><title>{video?.title || 'Видео'} | JARQ</title></svelte:head>
 <section class="shell max-w-5xl py-6">
   {#if loading}<p class="empty">Загружаем видео...</p>{:else if video}
     <VideoPlayer video={video} videoId={video.id} videoKey={video.view_url || video.video_key} chapters={video.chapters || []} initialProgress={0}/>

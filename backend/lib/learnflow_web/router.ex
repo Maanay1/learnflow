@@ -45,8 +45,13 @@ defmodule LearnflowWeb.Router do
     get "/courses/:slug", CourseController, :show
     get "/videos/:slug", VideoController, :show
     get "/search", SearchController, :index
+    get "/users/search", UserController, :search
+    get "/users/username-available", UserController, :username_available
+    get "/users/avatar/:key", UserController, :avatar_file
     get "/users/:username", UserController, :show
     get "/users/:username/videos", UserController, :videos
+    get "/users/:username/followers", UserController, :followers
+    get "/users/:username/following", UserController, :following
   end
 
   scope "/api", LearnflowWeb do
@@ -109,6 +114,9 @@ defmodule LearnflowWeb.Router do
     get "/creator/payouts", PaymentController, :payouts
     get "/certificates/:id/download", CertificateController, :download
     put "/settings/profile", UserController, :update
+    put "/users/me", UserController, :update
+    put "/users/me/password", UserController, :password
+    post "/users/me/avatar", UserController, :avatar
     delete "/settings/account", UserController, :delete
   end
 

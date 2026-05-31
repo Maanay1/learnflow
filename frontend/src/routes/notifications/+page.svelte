@@ -10,7 +10,7 @@
   });
   const time = (value) => value ? new Intl.DateTimeFormat('ru', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : '';
 </script>
-<svelte:head><title>Уведомления | LearnFlow</title></svelte:head>
+<svelte:head><title>Уведомления | JARQ</title></svelte:head>
 <section class="shell max-w-3xl py-8"><h1>Уведомления</h1>
   {#if loading}<p class="empty">Загружаем...</p>{:else if items.length}<div>{#each items as item}<article class:unread={!item.read_at}><Avatar user={item.actor} size={42}/><span><strong>{item.text}</strong><small>{time(item.inserted_at)}</small></span></article>{/each}</div>{:else}<p class="empty">Нет уведомлений</p>{/if}
 </section>

@@ -1,6 +1,6 @@
 defmodule Learnflow.Storage do
   @moduledoc """
-  MinIO/S3 storage operations for private LearnFlow media.
+  MinIO/S3 storage operations for private JARQ media.
   """
 
   require Logger
@@ -35,6 +35,7 @@ defmodule Learnflow.Storage do
   def bucket_videos, do: System.get_env("MINIO_BUCKET_VIDEOS", "learnflow-videos")
   def bucket_thumbnails, do: System.get_env("MINIO_BUCKET_THUMBNAILS", "learnflow-thumbnails")
   def bucket_certificates, do: System.get_env("MINIO_BUCKET_CERTIFICATES", "learnflow-certificates")
+  def bucket_avatars, do: System.get_env("MINIO_BUCKET_AVATARS", "jarq-avatars")
 
   def generate_upload_url(bucket, key, content_type, _max_bytes) do
     opts = [
@@ -98,7 +99,7 @@ defmodule Learnflow.Storage do
   end
 
   def create_buckets_if_not_exist do
-    Enum.each([bucket_videos(), bucket_thumbnails(), bucket_certificates()], fn bucket ->
+    Enum.each([bucket_videos(), bucket_thumbnails(), bucket_certificates(), bucket_avatars()], fn bucket ->
       bucket
       |> ExAws.S3.put_bucket("us-east-1")
       |> ExAws.request(config())

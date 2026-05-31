@@ -15,7 +15,7 @@
 <section class="shell space-y-6 py-8">
   <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
     <div>
-      <p class="font-bold text-primary">LearnFlow Courses</p>
+      <p class="font-bold text-primary">JARQ Courses</p>
       <h1 class="text-3xl font-black">Курсы</h1>
     </div>
     <div class="grid gap-2 sm:grid-cols-3">

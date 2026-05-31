@@ -6,6 +6,7 @@
   import { authStore } from '$lib/stores';
   import Navbar from '$lib/components/Navbar.svelte';
   import Toast from '$lib/components/Toast.svelte';
+  import UsernameSetupModal from '$lib/components/UsernameSetupModal.svelte';
 
   onMount(async () => {
     authStore.setLoading(true);
@@ -20,6 +21,7 @@
 
 <Navbar />
 <Toast />
+<UsernameSetupModal />
 <main class="main page-fade" in:fade={{ duration: 200 }} out:fade={{ duration: 200 }}>
   <slot />
 </main>

@@ -15,6 +15,7 @@ defmodule Learnflow.Accounts.User do
     field(:avatar_key, :string)
     field(:avatar_url, :string)
     field(:google_id, :string)
+    field(:username_set, :boolean, default: true)
     field(:bio, :string)
     field(:is_creator, :boolean, default: false)
     field(:is_verified, :boolean, default: false)
@@ -70,14 +71,18 @@ defmodule Learnflow.Accounts.User do
 
   def profile_changeset(user, attrs) do
     user
-    |> cast(attrs, [:display_name, :bio])
+    |> cast(attrs, [:username, :display_name, :bio, :username_set])
+    |> validate_required([:username])
+    |> validate_username()
+    |> validate_length(:username, min: 3, max: 20)
     |> validate_length(:display_name, max: 100)
-    |> validate_length(:bio, max: 2_000)
+    |> validate_length(:bio, max: 150)
+    |> unique_constraint(:username)
   end
 
   def google_changeset(user, attrs) do
     user
-    |> cast(attrs, [:email, :username, :display_name, :avatar_url, :google_id, :password_hash, :is_verified])
+    |> cast(attrs, [:email, :username, :display_name, :avatar_url, :google_id, :password_hash, :is_verified, :username_set])
     |> validate_required([:email, :username, :google_id, :password_hash])
     |> update_change(:email, &normalize_email/1)
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+\.[^\s]+$/)
@@ -92,7 +97,7 @@ defmodule Learnflow.Accounts.User do
 
   def avatar_changeset(user, attrs) do
     user
-    |> cast(attrs, [:avatar_key])
+    |> cast(attrs, [:avatar_key, :avatar_url])
     |> validate_length(:avatar_key, max: 255)
   end
 
@@ -116,6 +121,7 @@ defmodule Learnflow.Accounts.User do
       avatar_key: nil,
       avatar_url: nil,
       google_id: nil,
+      username_set: true,
       is_creator: false,
       is_verified: false
     )

@@ -37,7 +37,14 @@ defmodule Learnflow.Messaging do
     end)
     |> Repo.transaction()
     |> case do
-      {:ok, %{conversation: conversation}} -> {:ok, get_conversation_for_user!(conversation.id, user.id)}
+      {:ok, %{conversation: conversation}} ->
+        attrs
+        |> Map.get("member_ids", Map.get(attrs, :member_ids, []))
+        |> Enum.uniq()
+        |> Enum.reject(&(&1 == user.id))
+        |> Enum.each(&add_member(user, conversation.id, &1))
+
+        {:ok, get_conversation_for_user!(conversation.id, user.id)}
       {:error, _step, reason, _} -> {:error, reason}
     end
   end
@@ -122,6 +129,30 @@ defmodule Learnflow.Messaging do
     else
       {:error, :not_found}
     end
+  end
+
+  def set_online(user_id) do
+    Agent.update(Learnflow.Messaging.Online, &Map.update(&1, user_id, 1, fn count -> count + 1 end))
+    :ok
+  end
+
+  def set_offline(user_id) do
+    Agent.get_and_update(Learnflow.Messaging.Online, fn online ->
+      case Map.get(online, user_id, 0) do
+        count when count > 1 -> {:online, Map.put(online, user_id, count - 1)}
+        _ -> {:offline, Map.delete(online, user_id)}
+      end
+    end)
+  end
+
+  def online_member_ids(conversation_id) do
+    online = Agent.get(Learnflow.Messaging.Online, & &1)
+
+    ConversationMember
+    |> where([m], m.conversation_id == ^conversation_id)
+    |> select([m], m.user_id)
+    |> Repo.all()
+    |> Enum.filter(&Map.has_key?(online, &1))
   end
 
   def add_member(%User{} = user, conversation_id, user_id) do
@@ -257,4 +288,5 @@ defmodule Learnflow.Messaging do
       _ -> nil
     end
   end
+
 end

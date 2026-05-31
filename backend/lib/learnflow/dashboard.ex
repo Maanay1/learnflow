@@ -93,13 +93,15 @@ defmodule Learnflow.Dashboard do
     }
   end
 
-  def public_profile(username) do
+  def public_profile(username, viewer_id \\ nil) do
     with user when not is_nil(user) <- Accounts.get_public_user(username) do
       user
       |> Accounts.public_user()
       |> Map.merge(%{
         followers_count: Social.get_followers_count(user.id),
-        following_count: Social.get_following_count(user.id)
+        following_count: Social.get_following_count(user.id),
+        videos_count: user.id |> Videos.creator_videos() |> length(),
+        is_following: viewer_id && Social.is_following?(viewer_id, user.id)
       })
     end
   end
@@ -446,7 +448,7 @@ defmodule Learnflow.Dashboard do
     number = certificate.certificate_number
 
     lines = [
-      "LearnFlow Certificate",
+      "JARQ Certificate",
       "Awarded to #{user_name}",
       "For completing #{course_title}",
       "Issued #{date}",

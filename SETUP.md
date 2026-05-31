@@ -1,7 +1,7 @@
 # Как настроить Google Auth
 
 1. Зайди на console.cloud.google.com
-2. Создай новый проект "LearnFlow"
+2. Создай новый проект "JARQ"
 3. APIs & Services → Credentials → Create OAuth 2.0 Client
 4. Application type: Web application
 5. Authorized redirect URIs добавь:

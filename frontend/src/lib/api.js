@@ -1,6 +1,5 @@
 import { browser } from '$app/environment';
 import { toastStore } from '$lib/stores';
-
 export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 function csrfToken() {
@@ -37,10 +36,19 @@ async function request(method, path, body) {
     }
 
     return data;
-  } catch (error) {
-    if (!error.status) toastStore.addToast('Ошибка сети. Проверьте подключение.', 'error');
-    throw error;
-  }
+  } catch (error) { throw error; }
+}
+
+async function upload(path, formData) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'X-CSRF-Token': csrfToken() },
+    body: formData
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw Object.assign(new Error(data.error || 'request_failed'), { status: response.status, data });
+  return data;
 }
 
 export const get = (path) => request('GET', path);
@@ -86,7 +94,9 @@ export const social = {
   comment: (id, body, parent_id = null) => post(`/api/videos/${id}/comments`, { body, parent_id }),
   deleteComment: (id) => del(`/api/comments/${id}`),
   profile: (username) => get(`/api/users/${username}`),
-  profileVideos: (username, params = {}) => get(`/api/users/${username}/videos?${new URLSearchParams(clean(params))}`)
+  profileVideos: (username, params = {}) => get(`/api/users/${username}/videos?${new URLSearchParams(clean(params))}`),
+  followers: (username) => get(`/api/users/${username}/followers`),
+  following: (username) => get(`/api/users/${username}/following`)
 };
 
 export const dashboard = {
@@ -96,11 +106,15 @@ export const dashboard = {
   saved: (cursor) => get(`/api/dashboard/saved?${new URLSearchParams(clean({ cursor }))}`),
   courses: () => get('/api/dashboard/courses'),
   exportData: () => get('/api/dashboard/export'),
-  updateProfile: (body) => put('/api/settings/profile', body)
+  updateProfile: (body) => put('/api/users/me', body),
+  updatePassword: (body) => put('/api/users/me/password', body),
+  uploadAvatar: (file) => { const form = new FormData(); form.append('avatar', file); return upload('/api/users/me/avatar', form); }
 };
 
 export const search = {
-  videos: (params = {}) => get(`/api/search?${new URLSearchParams(clean(params))}`)
+  videos: (params = {}) => get(`/api/search?${new URLSearchParams(clean(params))}`),
+  users: (q = '') => get(`/api/users/search?${new URLSearchParams(clean({ q }))}`),
+  usernameAvailable: (username) => get(`/api/users/username-available?${new URLSearchParams(clean({ username }))}`)
 };
 
 export const courses = {

@@ -8,6 +8,10 @@ defmodule Learnflow.Application do
       {Finch, name: Learnflow.Finch},
       {DynamicSupervisor, strategy: :one_for_one, name: Learnflow.ObanSupervisor},
       {Phoenix.PubSub, name: Learnflow.PubSub},
+      %{
+        id: Learnflow.Messaging.Online,
+        start: {Agent, :start_link, [fn -> %{} end, [name: Learnflow.Messaging.Online]]}
+      },
       LearnflowWeb.Endpoint
     ]
     |> maybe_add_oban_starter()

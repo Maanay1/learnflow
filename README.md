@@ -1,6 +1,6 @@
-# LearnFlow
+# JARQ
 
-LearnFlow is a dark-first educational social platform built with Phoenix, PostgreSQL, MinIO, Phoenix Channels, SvelteKit, and TailwindCSS. It supports creator uploads, signed private video access, social follows, likes, comments, dashboards, search, AI subtitles/summaries, and GDPR-style user export.
+JARQ is a dark-first educational social platform built with Phoenix, PostgreSQL, MinIO, Phoenix Channels, SvelteKit, and TailwindCSS. It supports creator uploads, signed private video access, social follows, likes, comments, dashboards, search, AI subtitles/summaries, and GDPR-style user export.
 
 ## Screenshots
 
@@ -44,6 +44,7 @@ docker compose -f infra/docker-compose.yml up --build
 | `MINIO_SECRET_KEY` | MinIO secret key | `minioadmin123` |
 | `MINIO_BUCKET_VIDEOS` | Bucket for uploaded video objects | `learnflow-videos` |
 | `MINIO_BUCKET_THUMBNAILS` | Bucket for thumbnails | `learnflow-thumbnails` |
+| `MINIO_BUCKET_AVATARS` | Bucket for uploaded profile avatars | `jarq-avatars` |
 | `OPENAI_API_KEY` | Enables Whisper transcription and GPT summaries/chapters | `sk-...` |
 | `GOOGLE_CLIENT_ID` | Google OAuth web client ID | `...apps.googleusercontent.com` |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth web client secret | `...` |
@@ -116,7 +117,7 @@ learnflow/
 
 ### Railway.app
 
-LearnFlow can be deployed to Railway in a few minutes:
+JARQ can be deployed to Railway in a few minutes:
 
 1. Go to [railway.app](https://railway.app).
 2. Connect the GitHub repo.
@@ -138,6 +139,7 @@ MINIO_SECRET_KEY=<S3 secret key>
 MINIO_BUCKET_VIDEOS=learnflow-videos
 MINIO_BUCKET_THUMBNAILS=learnflow-thumbnails
 MINIO_BUCKET_CERTIFICATES=learnflow-certificates
+MINIO_BUCKET_AVATARS=jarq-avatars
 OPENAI_API_KEY=
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
@@ -150,7 +152,7 @@ SMTP_HOST=
 SMTP_PORT=587
 SMTP_USERNAME=
 SMTP_PASSWORD=
-EMAIL_FROM=LearnFlow <noreply@learnflow.dev>
+EMAIL_FROM=JARQ <noreply@learnflow.dev>
 COOKIE_SECURE=true
 URL_SCHEME=https
 ```
@@ -159,7 +161,7 @@ URL_SCHEME=https
 
 Deploying from the repository root uses [Dockerfile](/Users/bayel/Desktop/JARQ_03/learnflow/Dockerfile) for the backend. For separate backend and frontend Railway services, set the service root directories to `backend` and `frontend` respectively. The backend service can use [backend/Dockerfile](/Users/bayel/Desktop/JARQ_03/learnflow/backend/Dockerfile), and the frontend uses [frontend/Dockerfile](/Users/bayel/Desktop/JARQ_03/learnflow/frontend/Dockerfile) plus [frontend/nginx.conf](/Users/bayel/Desktop/JARQ_03/learnflow/frontend/nginx.conf).
 
-LearnFlow is configured for a single Ubuntu 24.04 VPS using Docker, GitHub Container Registry, nginx, and GitHub Actions.
+JARQ is configured for a single Ubuntu 24.04 VPS using Docker, GitHub Container Registry, nginx, and GitHub Actions.
 
 ### GitHub Secrets
 

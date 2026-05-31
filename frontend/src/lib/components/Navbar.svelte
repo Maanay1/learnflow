@@ -37,7 +37,7 @@
 </script>
 
 <aside class="sidebar desktop-sidebar">
-  <a href="/feed" class="logo">LearnFlow</a>
+  <a href="/feed" class="logo">JARQ</a>
   <nav class="desktop-nav">
     {#each items as item}
       <a class="nav-item" class:active={active(item)} class:upload={item.upload} href={item.href}>
@@ -46,6 +46,7 @@
         {#if item.badge}
           <small class="nav-badge">{item.badge}</small>
         {/if}
+        <i>{item.label}</i>
       </a>
     {/each}
   </nav>
@@ -67,7 +68,7 @@
       {#if item.badge}
         <small class="mobile-badge">{item.badge}</small>
       {/if}
-      {#if !item.upload}<span>{item.label}</span>{/if}
+      {#if !item.upload}<span>{item.href === '/feed' ? 'JARQ' : item.label}</span>{/if}
     </a>
   {/each}
 </nav>
@@ -94,8 +95,8 @@
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    font-size: 22px;
-    font-weight: 800;
+    font-size: 28px;
+    font-weight: 900;
     letter-spacing: 0;
   }
 
@@ -143,6 +144,22 @@
     background: rgba(255,255,255,0.05);
     color: white;
   }
+
+  .nav-item i {
+    position: absolute;
+    left: calc(100% + 8px);
+    display: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #111;
+    padding: 6px 9px;
+    color: white;
+    font-size: 12px;
+    font-style: normal;
+    white-space: nowrap;
+  }
+
+  .nav-item:hover i { display: block; }
 
   .nav-item.active {
     border-radius: 10px;

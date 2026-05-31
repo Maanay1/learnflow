@@ -8,8 +8,10 @@ defmodule LearnflowWeb.MessagingChannel do
     user = socket.assigns[:current_user]
 
     if user && Messaging.member?(conversation_id, user.id) do
-      Phoenix.PubSub.subscribe(Learnflow.PubSub, "conversation:#{conversation_id}")
-      {:ok, assign(socket, :conversation_id, conversation_id)}
+      Messaging.set_online(user.id)
+      socket = assign(socket, :conversation_id, conversation_id)
+      send(self(), :after_join_presence)
+      {:ok, %{online_user_ids: Messaging.online_member_ids(conversation_id)}, socket}
     else
       {:error, %{reason: "unauthorized"}}
     end
@@ -40,6 +42,11 @@ defmodule LearnflowWeb.MessagingChannel do
   end
 
   @impl true
+  def handle_info(:after_join_presence, socket) do
+    broadcast_from(socket, "presence", %{user_id: socket.assigns.current_user.id, online: true})
+    {:noreply, socket}
+  end
+
   def handle_info({:new_message, message}, socket) do
     push(socket, "new_message", %{message: ConversationController.message_json(message)})
     {:noreply, socket}
@@ -48,5 +55,16 @@ defmodule LearnflowWeb.MessagingChannel do
   def handle_info({:conversation_read, user_id, at}, socket) do
     push(socket, "read", %{user_id: user_id, last_read_at: at})
     {:noreply, socket}
+  end
+
+  @impl true
+  def terminate(_reason, socket) do
+    if socket.assigns[:current_user] do
+      if Messaging.set_offline(socket.assigns.current_user.id) == :offline do
+        broadcast_from(socket, "presence", %{user_id: socket.assigns.current_user.id, online: false})
+      end
+    end
+
+    :ok
   end
 end

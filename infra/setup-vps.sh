@@ -20,7 +20,7 @@ echo \
 sudo apt-get update
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-echo "Creating LearnFlow directories..."
+echo "Creating JARQ directories..."
 sudo mkdir -p "$APP_DIR" /var/www/certbot /opt/learnflow/backups
 sudo chown -R "$USER:$USER" "$APP_DIR"
 
@@ -44,6 +44,7 @@ MINIO_PUBLIC_ENDPOINT=https://storage.example.com
 MINIO_BUCKET_VIDEOS=learnflow-videos
 MINIO_BUCKET_THUMBNAILS=learnflow-thumbnails
 MINIO_BUCKET_CERTIFICATES=learnflow-certificates
+MINIO_BUCKET_AVATARS=jarq-avatars
 OPENAI_API_KEY=
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
@@ -53,7 +54,7 @@ SMTP_HOST=
 SMTP_PORT=587
 SMTP_USERNAME=
 SMTP_PASSWORD=
-EMAIL_FROM=LearnFlow <noreply@$DOMAIN>
+EMAIL_FROM=JARQ <noreply@$DOMAIN>
 ENV
 fi
 
@@ -67,7 +68,7 @@ sudo certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "$EMAIL" --re
 echo "Creating systemd unit..."
 sudo tee /etc/systemd/system/learnflow.service >/dev/null <<SERVICE
 [Unit]
-Description=LearnFlow Docker Compose stack
+Description=JARQ Docker Compose stack
 Requires=docker.service
 After=docker.service network-online.target
 

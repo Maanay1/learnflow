@@ -1,9 +1,9 @@
 apiVersion: 1
 
 providers:
-  - name: LearnFlow
+  - name: JARQ
     orgId: 1
-    folder: LearnFlow
+    folder: JARQ
     type: file
     disableDeletion: false
     updateIntervalSeconds: 30
