@@ -24,6 +24,15 @@ defmodule LearnflowWeb.Endpoint do
   plug Plug.MethodOverride
   plug Plug.Head
   plug Plug.Session, @session_options
-  plug LearnflowWeb.Plugs.CORS
+  plug Corsica,
+    origins: [
+      "http://localhost:3000",
+      "https://learnflow-c5n9v2sbg-ada40vbayel-5500s-projects.vercel.app",
+      ~r{https://learnflow.*\.vercel\.app}
+    ],
+    allow_headers: ["content-type", "authorization", "x-csrf-token"],
+    allow_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_credentials: true
+
   plug LearnflowWeb.Router
 end

@@ -46,7 +46,8 @@ defmodule Learnflow.MixProject do
       {:hackney, "~> 1.20"},
       {:sweet_xml, "~> 0.7"},
       {:ueberauth, "~> 0.10"},
-      {:ueberauth_google, "~> 0.12"}
+      {:ueberauth_google, "~> 0.12"},
+      {:corsica, "~> 2.0"}
     ]
   end
 
