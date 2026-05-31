@@ -1,0 +1,204 @@
+name: Deploy LearnFlow
+
+on:
+  push:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE: ghcr.io/${{ github.repository }}/backend
+  FRONTEND_IMAGE: ghcr.io/${{ github.repository }}/frontend
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: learnflow_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d learnflow_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      minio:
+        image: minio/minio:latest
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin123
+        ports:
+          - 9000:9000
+          - 9001:9001
+        options: >-
+          --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+        command: server /data --console-address ":9001"
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.16"
+          otp-version: "26"
+
+      - name: Cache Mix deps
+        uses: actions/cache@v4
+        with:
+          path: |
+            backend/deps
+            backend/_build
+          key: ${{ runner.os }}-mix-${{ hashFiles('backend/mix.lock') }}-${{ hashFiles('backend/mix.exs') }}
+          restore-keys: ${{ runner.os }}-mix-
+
+      - name: Install dependencies
+        run: mix deps.get
+
+      - name: Create and migrate database
+        env:
+          MIX_ENV: test
+          DATABASE_URL: ecto://postgres:postgres@localhost:5432/learnflow_test
+          MINIO_ENDPOINT: http://localhost:9000
+          MINIO_ACCESS_KEY: minioadmin
+          MINIO_SECRET_KEY: minioadmin123
+        run: mix ecto.create && mix ecto.migrate
+
+      - name: Run tests
+        env:
+          MIX_ENV: test
+          DATABASE_URL: ecto://postgres:postgres@localhost:5432/learnflow_test
+          MINIO_ENDPOINT: http://localhost:9000
+          MINIO_ACCESS_KEY: minioadmin
+          MINIO_SECRET_KEY: minioadmin123
+        run: mix test --color
+
+      - name: Notify failure
+        if: failure()
+        run: echo "Tests failed. Deployment stopped."
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          push: true
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+            ${{ env.BACKEND_IMAGE }}:latest
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          push: true
+          build-args: |
+            VITE_API_URL=https://${{ secrets.VPS_DOMAIN }}
+            VITE_WS_URL=wss://${{ secrets.VPS_DOMAIN }}/socket
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+            ${{ env.FRONTEND_IMAGE }}:latest
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/learnflow
+          chmod 600 ~/.ssh/learnflow
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Upload deployment files
+        run: |
+          scp -i ~/.ssh/learnflow infra/docker-compose.prod.yml infra/nginx.conf infra/backup.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/learnflow/"
+
+      - name: Deploy over SSH
+        env:
+          SHA: ${{ github.sha }}
+        run: |
+          ssh -i ~/.ssh/learnflow "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" << EOF
+          set -e
+          cd /opt/learnflow
+          touch .env.production
+          set_env() {
+            key="\$1"
+            value="\$2"
+            tmp="\$(mktemp)"
+            awk -v k="\$key" -v v="\$value" 'BEGIN{done=0} \$0 ~ "^" k "=" {print k "=" v; done=1; next} {print} END{if(done==0) print k "=" v}' .env.production > "\$tmp"
+            mv "\$tmp" .env.production
+          }
+          set_env DOMAIN "${{ secrets.VPS_DOMAIN }}"
+          set_env GHCR_REPOSITORY "${{ github.repository }}"
+          set_env DATABASE_URL "${{ secrets.DATABASE_URL }}"
+          set_env SECRET_KEY_BASE "${{ secrets.SECRET_KEY_BASE }}"
+          set_env MINIO_ACCESS_KEY "${{ secrets.MINIO_ACCESS_KEY }}"
+          set_env MINIO_SECRET_KEY "${{ secrets.MINIO_SECRET_KEY }}"
+          set_env OPENAI_API_KEY "${{ secrets.OPENAI_API_KEY }}"
+          set_env STRIPE_SECRET_KEY "${{ secrets.STRIPE_SECRET_KEY }}"
+          set_env STRIPE_WEBHOOK_SECRET "${{ secrets.STRIPE_WEBHOOK_SECRET }}"
+          set_env SMTP_HOST "${{ secrets.SMTP_HOST }}"
+          set_env SMTP_USERNAME "${{ secrets.SMTP_USER }}"
+          set_env SMTP_PASSWORD "${{ secrets.SMTP_PASSWORD }}"
+          export PREVIOUS_IMAGE_TAG=\$(grep '^IMAGE_TAG=' .env.production 2>/dev/null | cut -d= -f2 || true)
+          set_env IMAGE_TAG "${SHA}"
+          docker login ghcr.io -u "${{ github.actor }}" -p "${{ secrets.GITHUB_TOKEN }}"
+          docker compose -f docker-compose.prod.yml pull
+          docker compose -f docker-compose.prod.yml up -d --no-deps --build backend frontend
+          docker compose -f docker-compose.prod.yml up -d nginx
+          docker compose -f docker-compose.prod.yml exec -T backend sh -lc 'if command -v mix >/dev/null 2>&1; then mix ecto.migrate; else /app/bin/learnflow rpc "Ecto.Migrator.run(Learnflow.Repo, :up, all: true)"; fi'
+          ok=0
+          for i in 1 2 3 4 5; do
+            if curl -fsS http://localhost:4000/health; then ok=1; break; fi
+            sleep 10
+          done
+          if [ "\$ok" != "1" ]; then
+            echo "Health check failed, rolling back"
+            if [ -n "\$PREVIOUS_IMAGE_TAG" ]; then
+              sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG='"\$PREVIOUS_IMAGE_TAG"'/' .env.production
+              docker compose -f docker-compose.prod.yml pull
+              docker compose -f docker-compose.prod.yml up -d --no-deps --build backend frontend
+              docker compose -f docker-compose.prod.yml up -d nginx
+            fi
+            exit 1
+          fi
+          echo "Deploy succeeded"
+          EOF
+
+      - name: Notify success
+        if: success()
+        run: echo "LearnFlow deploy succeeded."
+
+      - name: Notify failure
+        if: failure()
+        run: echo "LearnFlow deploy failed."

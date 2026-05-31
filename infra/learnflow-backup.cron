@@ -1,0 +1,1 @@
+15 2 * * * APP_DIR=/opt/learnflow /opt/learnflow/backup.sh >> /var/log/learnflow-backup.log 2>&1

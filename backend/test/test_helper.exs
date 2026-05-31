@@ -1,0 +1,7 @@
+ExUnit.start()
+System.put_env("MINIO_ENDPOINT", "http://localhost:9000")
+System.put_env("MINIO_ACCESS_KEY", "minioadmin")
+System.put_env("MINIO_SECRET_KEY", "minioadmin123")
+System.put_env("MINIO_BUCKET_VIDEOS", "learnflow-videos")
+System.put_env("MINIO_BUCKET_THUMBNAILS", "learnflow-thumbnails")
+Ecto.Adapters.SQL.Sandbox.mode(Learnflow.Repo, :manual)

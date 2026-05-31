@@ -1,0 +1,18 @@
+{
+	"/": [
+		"src/routes/+page.js"
+	],
+	"/courses": [],
+	"/courses/[slug]": [],
+	"/dashboard": [],
+	"/feed": [],
+	"/login": [],
+	"/messages": [],
+	"/notifications": [],
+	"/profile/[username]": [],
+	"/register": [],
+	"/search": [],
+	"/settings": [],
+	"/upload": [],
+	"/video/[slug]": []
+}

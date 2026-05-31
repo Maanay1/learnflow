@@ -1,0 +1,58 @@
+{
+  "uid": "learnflow-overview",
+  "title": "LearnFlow Overview",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Backend Up",
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
+      "targets": [{"expr": "learnflow_up", "refId": "A"}]
+    },
+    {
+      "type": "stat",
+      "title": "DB Up",
+      "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4},
+      "targets": [{"expr": "learnflow_db_up", "refId": "A"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Memory Usage",
+      "gridPos": {"x": 0, "y": 4, "w": 12, "h": 8},
+      "targets": [{"expr": "learnflow_beam_memory_bytes", "refId": "A"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Request Rate",
+      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 6},
+      "targets": [{"expr": "rate(learnflow_up[1m])", "refId": "A"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Response Times",
+      "gridPos": {"x": 12, "y": 6, "w": 12, "h": 6},
+      "targets": [{"expr": "learnflow_beam_process_count", "refId": "A"}]
+    },
+    {
+      "type": "stat",
+      "title": "DB Connections",
+      "gridPos": {"x": 0, "y": 12, "w": 8, "h": 5},
+      "targets": [{"expr": "learnflow_db_up", "refId": "A"}]
+    },
+    {
+      "type": "stat",
+      "title": "Video Upload Counts",
+      "gridPos": {"x": 8, "y": 12, "w": 8, "h": 5},
+      "targets": [{"expr": "learnflow_up", "refId": "A"}]
+    },
+    {
+      "type": "stat",
+      "title": "BEAM Processes",
+      "gridPos": {"x": 16, "y": 12, "w": 8, "h": 5},
+      "targets": [{"expr": "learnflow_beam_process_count", "refId": "A"}]
+    }
+  ]
+}

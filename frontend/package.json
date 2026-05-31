@@ -1,0 +1,35 @@
+{
+  "name": "learnflow-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 3000",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 3000",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+  },
+  "dependencies": {
+    "@heroicons/react": "^2.2.0",
+    "@sveltejs/adapter-node": "^5.2.0",
+    "@sveltejs/adapter-static": "^3.0.10",
+    "@sveltejs/kit": "^2.5.0",
+    "date-fns": "^4.3.0",
+    "framer-motion": "^12.40.0",
+    "lucide-svelte": "^0.468.0",
+    "phoenix": "^1.7.14",
+    "react-player": "^3.4.0",
+    "svelte": "^5.46.4",
+    "swiper": "^12.1.4",
+    "vite": "^8.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/forms": "^0.5.9",
+    "@tailwindcss/typography": "^0.5.15",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
+    "svelte-check": "^4.0.0",
+    "tailwindcss": "^3.4.4",
+    "typescript": "^5.6.3"
+  }
+}
