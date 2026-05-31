@@ -62,16 +62,25 @@ defmodule LearnflowWeb.AuthController do
   def me(conn, _params), do: json(conn, %{user: Accounts.public_user(conn.assigns.current_user)})
 
   def google_request(conn, _params) do
-    redirect(conn,
-      external:
-        Ueberauth.Strategy.Google.OAuth.authorize_url!(
-          scope: "email profile",
-          redirect_uri: google_callback_url()
-        )
-    )
+    redirect_uri =
+      System.get_env("BACKEND_URL", "http://localhost:4000")
+      |> String.trim_trailing("/")
+      |> Kernel.<>("/auth/google/callback")
+
+    url =
+      Ueberauth.Strategy.Google.OAuth.authorize_url!(
+        scope: "email profile",
+        redirect_uri: redirect_uri
+      )
+
+    redirect(conn, external: url)
   end
 
   def google_callback(conn, %{"code" => code}) do
+    frontend_url =
+      System.get_env("FRONTEND_URL", "http://localhost:3000")
+      |> String.trim_trailing("/")
+
     with {:ok, token} <- get_google_access_token(code),
          {:ok, user_info} <- get_google_user_info(token.access_token),
          {:ok, user} <- find_or_create_google_user(user_info),
@@ -83,7 +92,7 @@ defmodule LearnflowWeb.AuthController do
         same_site: "Lax",
         max_age: @session_max_age
       )
-      |> redirect(external: "#{frontend_url()}/feed")
+      |> redirect(external: frontend_url <> "/feed")
     else
       {:error, reason} ->
         Logger.warning("Google OAuth callback failed: #{inspect(reason)}")
