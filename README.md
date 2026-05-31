@@ -168,6 +168,7 @@ Set these environment variables on the Render backend service:
 ```text
 BACKEND_URL=https://learnflow-api-1eef.onrender.com
 FRONTEND_URL=https://jarq.me
+COOKIE_SECURE=true
 ```
 
 Add `https://learnflow-api-1eef.onrender.com/auth/google/callback` to the authorized redirect URIs of the Google OAuth web client.

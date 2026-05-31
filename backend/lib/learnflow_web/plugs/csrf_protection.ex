@@ -29,7 +29,7 @@ defmodule LearnflowWeb.Plugs.CSRFProtection do
 
       put_resp_cookie(conn, "csrf_token", token,
         http_only: false,
-        same_site: "Strict",
+        same_site: cookie_same_site(),
         secure: cookie_secure?(),
         max_age: 86_400
       )
@@ -39,4 +39,6 @@ defmodule LearnflowWeb.Plugs.CSRFProtection do
   defp cookie_secure? do
     System.get_env("COOKIE_SECURE", "false") == "true"
   end
+
+  defp cookie_same_site, do: if(cookie_secure?(), do: "None", else: "Lax")
 end

@@ -1,6 +1,6 @@
 import { browser } from '$app/environment';
 import { toastStore } from '$lib/stores';
-export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+export const API_BASE = (import.meta.env.VITE_API_URL || 'https://learnflow-api-1eef.onrender.com').replace(/\/+$/, '');
 
 function csrfToken() {
   if (!browser) return '';

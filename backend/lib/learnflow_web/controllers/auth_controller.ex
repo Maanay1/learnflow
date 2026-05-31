@@ -55,32 +55,23 @@ defmodule LearnflowWeb.AuthController do
     end
 
     conn
-    |> delete_resp_cookie(@session_cookie, http_only: true, secure: cookie_secure?(), same_site: "Strict")
+    |> delete_resp_cookie(@session_cookie, http_only: true, secure: cookie_secure?(), same_site: cookie_same_site())
     |> json(%{ok: true})
   end
 
   def me(conn, _params), do: json(conn, %{user: Accounts.public_user(conn.assigns.current_user)})
 
   def google_request(conn, _params) do
-    redirect_uri =
-      System.get_env("BACKEND_URL", "http://localhost:4000")
-      |> String.trim_trailing("/")
-      |> Kernel.<>("/auth/google/callback")
-
     url =
       Ueberauth.Strategy.Google.OAuth.authorize_url!(
         scope: "email profile",
-        redirect_uri: redirect_uri
+        redirect_uri: google_callback_url()
       )
 
     redirect(conn, external: url)
   end
 
   def google_callback(conn, %{"code" => code}) do
-    frontend_url =
-      System.get_env("FRONTEND_URL", "http://localhost:3000")
-      |> String.trim_trailing("/")
-
     with {:ok, token} <- get_google_access_token(code),
          {:ok, user_info} <- get_google_user_info(token.access_token),
          {:ok, user} <- find_or_create_google_user(user_info),
@@ -89,10 +80,10 @@ defmodule LearnflowWeb.AuthController do
       |> put_resp_cookie(@session_cookie, session_token,
         http_only: true,
         secure: cookie_secure?(),
-        same_site: "Lax",
+        same_site: cookie_same_site(),
         max_age: @session_max_age
       )
-      |> redirect(external: frontend_url <> "/feed")
+      |> redirect(external: "#{frontend_url()}/feed")
     else
       {:error, reason} ->
         Logger.warning("Google OAuth callback failed: #{inspect(reason)}")
@@ -108,7 +99,7 @@ defmodule LearnflowWeb.AuthController do
     put_resp_cookie(conn, @session_cookie, token,
       http_only: true,
       secure: cookie_secure?(),
-      same_site: "Strict",
+      same_site: cookie_same_site(),
       max_age: @session_max_age
     )
   end
@@ -116,6 +107,8 @@ defmodule LearnflowWeb.AuthController do
   defp cookie_secure? do
     System.get_env("COOKIE_SECURE", "false") == "true"
   end
+
+  defp cookie_same_site, do: if(cookie_secure?(), do: "None", else: "Lax")
 
   defp changeset_error(changeset) do
     {field, messages} =
