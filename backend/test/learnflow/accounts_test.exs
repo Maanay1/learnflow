@@ -103,5 +103,9 @@ defmodule Learnflow.AccountsTest do
       assert Accounts.get_user_by_session_token(token) == nil
       assert Accounts.get_user_by_session_token(new_token).id == user.id
     end
+
+    test "rotate_session_token/3 rejects an unknown token" do
+      assert {:error, :invalid_session} = Accounts.rotate_session_token("unknown", "127.0.0.1", "ExUnit")
+    end
   end
 end

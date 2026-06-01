@@ -112,12 +112,12 @@ defmodule Learnflow.Accounts do
   def rotate_session_token(token, _ip_address, _user_agent) when token in [nil, ""], do: {:error, :invalid_session}
 
   def rotate_session_token(token, ip_address, user_agent) do
-    Repo.transaction(fn ->
-      case get_session_by_token(token) do
-        nil ->
-          Repo.rollback(:invalid_session)
+    case get_session_by_token(token) do
+      nil ->
+        {:error, :invalid_session}
 
-        %Session{} = session ->
+      %Session{} = session ->
+        Repo.transaction(fn ->
           {deleted, _} = Repo.delete_all(from s in Session, where: s.id == ^session.id)
 
           if deleted == 1 do
@@ -128,8 +128,8 @@ defmodule Learnflow.Accounts do
           else
             Repo.rollback(:invalid_session)
           end
-      end
-    end)
+        end)
+    end
   end
 
   def logout(session_id) do
