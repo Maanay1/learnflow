@@ -5,6 +5,8 @@ defmodule LearnflowWeb.AuthController do
 
   @session_cookie "session_token"
   @session_max_age 30 * 24 * 60 * 60
+  @google_state_salt "google oauth state"
+  @google_state_max_age 10 * 60
 
   def register(conn, params) do
     with {:ok, user} <- Accounts.register_user(params),
@@ -62,28 +64,25 @@ defmodule LearnflowWeb.AuthController do
   def me(conn, _params), do: json(conn, %{user: Accounts.public_user(conn.assigns.current_user)})
 
   def google_request(conn, _params) do
+    state = google_state()
+
     url =
       Ueberauth.Strategy.Google.OAuth.authorize_url!(
         scope: "email profile",
-        redirect_uri: google_callback_url()
+        redirect_uri: google_callback_url(),
+        state: state
       )
 
     redirect(conn, external: url)
   end
 
-  def google_callback(conn, %{"code" => code}) do
-    with {:ok, token} <- get_google_access_token(code),
+  def google_callback(conn, %{"code" => code, "state" => state}) do
+    with :ok <- verify_google_state(state),
+         {:ok, token} <- get_google_access_token(code),
          {:ok, user_info} <- get_google_user_info(token.access_token),
          {:ok, user} <- find_or_create_google_user(user_info),
          {:ok, session_token, _session} <- create_google_session(user, conn) do
-      conn
-      |> put_resp_cookie(@session_cookie, session_token,
-        http_only: true,
-        secure: cookie_secure?(),
-        same_site: cookie_same_site(),
-        max_age: @session_max_age
-      )
-      |> redirect(external: "#{frontend_url()}/feed")
+      redirect(conn, external: google_session_url(session_token))
     else
       {:error, reason} ->
         Logger.warning("Google OAuth callback failed: #{inspect(reason)}")
@@ -92,6 +91,23 @@ defmodule LearnflowWeb.AuthController do
   end
 
   def google_callback(conn, _params) do
+    redirect(conn, external: "#{frontend_url()}/login?error=google_auth_failed")
+  end
+
+  def google_session(conn, %{"ticket" => ticket}) do
+    case Accounts.rotate_session_token(ticket, client_ip(conn), user_agent(conn)) do
+      {:ok, session_token} ->
+        conn
+        |> put_session_cookie(session_token)
+        |> redirect(external: "#{frontend_url()}/feed")
+
+      {:error, reason} ->
+        Logger.warning("Google OAuth session bridge failed: #{inspect(reason)}")
+        redirect(conn, external: "#{frontend_url()}/login?error=google_auth_failed")
+    end
+  end
+
+  def google_session(conn, _params) do
     redirect(conn, external: "#{frontend_url()}/login?error=google_auth_failed")
   end
 
@@ -169,6 +185,20 @@ defmodule LearnflowWeb.AuthController do
   end
 
   defp google_callback_url, do: "#{backend_url()}/auth/google/callback"
+  defp google_session_url(token), do: "#{frontend_url()}/auth/google/session?ticket=#{URI.encode_www_form(token)}"
+
+  defp google_state do
+    nonce = :crypto.strong_rand_bytes(32) |> Base.url_encode64(padding: false)
+    Phoenix.Token.sign(LearnflowWeb.Endpoint, @google_state_salt, nonce)
+  end
+
+  defp verify_google_state(state) do
+    case Phoenix.Token.verify(LearnflowWeb.Endpoint, @google_state_salt, state, max_age: @google_state_max_age) do
+      {:ok, _nonce} -> :ok
+      {:error, _reason} -> {:error, :invalid_google_state}
+    end
+  end
+
   defp backend_url, do: System.get_env("BACKEND_URL", "http://localhost:4000") |> String.trim_trailing("/")
   defp frontend_url, do: System.get_env("FRONTEND_URL", "http://localhost:3000") |> String.trim_trailing("/")
 end

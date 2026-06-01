@@ -93,5 +93,15 @@ defmodule Learnflow.AccountsTest do
 
       assert Accounts.get_user_by_session_token(token) == nil
     end
+
+    test "rotate_session_token/3 invalidates the old token and returns a new session token" do
+      {:ok, user} = Accounts.register_user(@valid_attrs)
+      {:ok, token, _session} = Accounts.create_session(user, "127.0.0.1", "ExUnit")
+
+      assert {:ok, new_token} = Accounts.rotate_session_token(token, "127.0.0.1", "ExUnit")
+      refute new_token == token
+      assert Accounts.get_user_by_session_token(token) == nil
+      assert Accounts.get_user_by_session_token(new_token).id == user.id
+    end
   end
 end

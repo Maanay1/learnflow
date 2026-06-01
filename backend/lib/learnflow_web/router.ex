@@ -131,6 +131,7 @@ defmodule LearnflowWeb.Router do
 
     get "/auth/google", AuthController, :google_request
     get "/auth/google/callback", AuthController, :google_callback
+    get "/auth/google/session", AuthController, :google_session
     get "/health", HealthController, :show
     get "/metrics", MetricsController, :index
   end

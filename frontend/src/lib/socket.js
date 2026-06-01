@@ -1,7 +1,6 @@
 import { Socket } from 'phoenix';
 
-const API_URL = (import.meta.env.VITE_API_URL || 'https://learnflow-api-1eef.onrender.com').replace(/\/+$/, '');
-const WS_URL = import.meta.env.VITE_WS_URL || `${API_URL.replace(/^http/, 'ws')}/socket`;
+const WS_URL = import.meta.env.VITE_WS_URL || 'wss://learnflow-api-1eef.onrender.com/socket';
 
 function sessionToken() {
   return document.cookie.split('; ').find((row) => row.startsWith('session_token='))?.split('=')[1] || '';

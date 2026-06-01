@@ -18,7 +18,7 @@ defmodule LearnflowWeb.AuthControllerTest do
     assert [cookie] = get_resp_header(conn, "set-cookie")
     assert cookie =~ "session_token="
     assert cookie =~ "HttpOnly"
-    assert cookie =~ "SameSite=Strict"
+    assert cookie =~ "SameSite=Lax"
   end
 
   test "POST /api/auth/login authenticates and sets a session cookie", %{conn: conn} do
@@ -71,6 +71,33 @@ defmodule LearnflowWeb.AuthControllerTest do
     assert %{"ok" => true} = json_response(conn, 200)
     assert Repo.get(Session, session.id) == nil
     assert get_resp_header(conn, "set-cookie") |> Enum.any?(&String.contains?(&1, "session_token=;"))
+  end
+
+  test "GET /auth/google/session rotates the bridge ticket and sets a session cookie", %{conn: conn} do
+    {:ok, user} = Accounts.register_user(@valid_attrs)
+    {:ok, ticket, _session} = Accounts.create_session(user, "127.0.0.1", "ExUnit")
+
+    conn = get(conn, "/auth/google/session?ticket=#{URI.encode_www_form(ticket)}")
+
+    assert redirected_to(conn) == "http://localhost:3000/feed"
+    session_token = conn.resp_cookies["session_token"].value
+    refute session_token == ticket
+    assert Accounts.get_user_by_session_token(ticket) == nil
+    assert Accounts.get_user_by_session_token(session_token).id == user.id
+  end
+
+  test "GET /auth/google redirects with a signed state token", %{conn: conn} do
+    conn = get(conn, "/auth/google")
+    query = conn |> redirected_to() |> URI.parse() |> Map.fetch!(:query) |> URI.decode_query()
+
+    assert query["redirect_uri"] == "http://localhost:4000/auth/google/callback"
+    assert {:ok, _nonce} = Phoenix.Token.verify(LearnflowWeb.Endpoint, "google oauth state", query["state"], max_age: 600)
+  end
+
+  test "GET /auth/google/callback rejects a callback without state", %{conn: conn} do
+    conn = get(conn, "/auth/google/callback?code=unused")
+
+    assert redirected_to(conn) == "http://localhost:3000/login?error=google_auth_failed"
   end
 
   defp put_csrf(conn) do

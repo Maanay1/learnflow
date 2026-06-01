@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://learnflow-api-1eef.onrender.com/api/:path*"
+    },
+    {
+      "source": "/auth/:path*",
+      "destination": "https://learnflow-api-1eef.onrender.com/auth/:path*"
+    }
+  ]
+}
