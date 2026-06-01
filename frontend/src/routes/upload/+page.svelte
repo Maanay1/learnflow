@@ -5,6 +5,9 @@
   import { authStore } from '$lib/stores';
 
   const MAX_BYTES = 2_000_000_000;
+  const uploadErrors = {
+    storage_not_configured: 'Хранилище видео не настроено на сервере. Добавьте S3/MinIO переменные окружения.'
+  };
   const subjects = ['mathematics','physics','chemistry','biology','programming','history','languages','economics','design','philosophy'];
   let title = '', description = '', subject = 'programming', difficulty = 'beginner';
   let file, error = '', progress = 0, uploading = false, dragging = false, duration = 0;
@@ -44,7 +47,8 @@
       const { video: published } = await videos.confirm(video.id, { video_key: signed.key, duration_seconds: duration });
       goto(`/video/${published.slug}`);
     } catch (uploadError) {
-      error = uploadError?.data?.error || uploadError.message || 'Не удалось опубликовать видео';
+      const apiError = uploadError?.data?.error;
+      error = uploadErrors[apiError] || apiError || uploadError.message || 'Не удалось опубликовать видео';
     } finally {
       uploading = false;
     }

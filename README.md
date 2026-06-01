@@ -169,9 +169,19 @@ Set these environment variables on the Render backend service:
 BACKEND_URL=https://learnflow-api-1eef.onrender.com
 FRONTEND_URL=https://jarq.me
 COOKIE_SECURE=true
+MINIO_ENDPOINT=https://<S3-compatible API endpoint>
+MINIO_PUBLIC_ENDPOINT=https://<browser-accessible S3-compatible endpoint>
+MINIO_ACCESS_KEY=<S3 access key>
+MINIO_SECRET_KEY=<S3 secret key>
+MINIO_BUCKET_VIDEOS=learnflow-videos
+MINIO_BUCKET_THUMBNAILS=learnflow-thumbnails
+MINIO_BUCKET_CERTIFICATES=learnflow-certificates
+MINIO_BUCKET_AVATARS=jarq-avatars
 ```
 
 Add `https://learnflow-api-1eef.onrender.com/auth/google/callback` to the authorized redirect URIs of the Google OAuth web client.
+
+The storage endpoint must be reachable from the browser. Configure its CORS policy to allow `https://jarq.me` and `https://www.jarq.me` with `GET`, `PUT`, and `HEAD` methods and the `Content-Type` header.
 
 Deploying from the repository root uses [Dockerfile](/Users/bayel/Desktop/JARQ_03/learnflow/Dockerfile) for the backend. For separate backend and frontend Railway services, set the service root directories to `backend` and `frontend` respectively. The backend service can use [backend/Dockerfile](/Users/bayel/Desktop/JARQ_03/learnflow/backend/Dockerfile), and the frontend uses [frontend/Dockerfile](/Users/bayel/Desktop/JARQ_03/learnflow/frontend/Dockerfile) plus [frontend/nginx.conf](/Users/bayel/Desktop/JARQ_03/learnflow/frontend/nginx.conf).
 

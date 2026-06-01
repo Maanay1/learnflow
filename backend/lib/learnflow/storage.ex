@@ -9,6 +9,7 @@ defmodule Learnflow.Storage do
   @upload_ttl_seconds 60 * 60
   @view_ttl_seconds 15 * 60
   @download_ttl_seconds 24 * 60 * 60
+  @required_env_vars ~w(MINIO_ENDPOINT MINIO_PUBLIC_ENDPOINT MINIO_ACCESS_KEY MINIO_SECRET_KEY)
 
   def config do
     endpoint = System.get_env("MINIO_ENDPOINT", @default_endpoint)
@@ -36,6 +37,16 @@ defmodule Learnflow.Storage do
   def bucket_thumbnails, do: System.get_env("MINIO_BUCKET_THUMBNAILS", "learnflow-thumbnails")
   def bucket_certificates, do: System.get_env("MINIO_BUCKET_CERTIFICATES", "learnflow-certificates")
   def bucket_avatars, do: System.get_env("MINIO_BUCKET_AVATARS", "jarq-avatars")
+
+  def validate_configuration do
+    missing = Enum.filter(@required_env_vars, &(System.get_env(&1) in [nil, ""]))
+
+    if missing == [] do
+      :ok
+    else
+      {:error, {:storage_not_configured, missing}}
+    end
+  end
 
   def generate_upload_url(bucket, key, content_type, _max_bytes) do
     opts = [
@@ -78,13 +89,13 @@ defmodule Learnflow.Storage do
   def put_object(bucket, key, body, content_type) do
     bucket
     |> ExAws.S3.put_object(key, body, content_type: content_type)
-    |> ExAws.request(config())
+    |> request()
   end
 
   def get_object(bucket, key) do
     bucket
     |> ExAws.S3.get_object(key)
-    |> ExAws.request(config())
+    |> request()
     |> case do
       {:ok, %{body: body}} -> {:ok, body}
       {:ok, body} when is_binary(body) -> {:ok, body}
@@ -95,32 +106,46 @@ defmodule Learnflow.Storage do
   def delete_object(bucket, key) do
     bucket
     |> ExAws.S3.delete_object(key)
-    |> ExAws.request(config())
+    |> request()
   end
 
   def create_buckets_if_not_exist do
-    Enum.each([bucket_videos(), bucket_thumbnails(), bucket_certificates(), bucket_avatars()], fn bucket ->
-      bucket
-      |> ExAws.S3.put_bucket("us-east-1")
-      |> ExAws.request(config())
-      |> case do
-        {:ok, _} -> :ok
-        {:error, {:http_error, 409, _}} -> :ok
-        {:error, reason} -> Logger.warning("MinIO bucket setup skipped: #{inspect(reason)}")
-      end
-    end)
+    case validate_configuration() do
+      :ok ->
+        Enum.each([bucket_videos(), bucket_thumbnails(), bucket_certificates(), bucket_avatars()], fn bucket ->
+          bucket
+          |> ExAws.S3.put_bucket("us-east-1")
+          |> request()
+          |> case do
+            {:ok, _} -> :ok
+            {:error, {:http_error, 409, _}} -> :ok
+            {:error, reason} -> Logger.warning("MinIO bucket setup skipped: #{inspect(reason)}")
+          end
+        end)
+
+      {:error, {:storage_not_configured, missing}} ->
+        Logger.warning("MinIO bucket setup skipped: missing #{Enum.join(missing, ", ")}")
+    end
 
     :ok
   end
 
   defp presign(method, bucket, key, opts) do
-    ExAws.Config.new(:s3, public_config())
-    |> ExAws.S3.presigned_url(method, bucket, key, opts)
-    |> case do
-      {:ok, url} -> {:ok, url}
-      {:error, reason} -> {:error, reason}
+    with :ok <- validate_configuration() do
+      ExAws.Config.new(:s3, public_config())
+      |> ExAws.S3.presigned_url(method, bucket, key, opts)
+      |> case do
+        {:ok, url} -> {:ok, url}
+        {:error, reason} -> {:error, reason}
+      end
     end
   rescue
     error -> {:error, error}
+  end
+
+  defp request(operation) do
+    with :ok <- validate_configuration() do
+      ExAws.request(operation, config())
+    end
   end
 end
