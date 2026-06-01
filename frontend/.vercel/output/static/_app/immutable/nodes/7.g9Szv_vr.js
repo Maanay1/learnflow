@@ -1,1 +1,0 @@
-import{C as e,G as t,Q as n}from"../chunks/CVbzDXk1.js";import"../chunks/xihTtKlq.js";import"../chunks/DtW1KYSt.js";import{t as r}from"../chunks/_mRrZrWC.js";function i(i){e(`1x05zx6`,e=>{t(()=>{n.title=`Войти | LearnFlow`})}),r(i,{initialMode:`login`})}export{i as component};
