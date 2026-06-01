@@ -1,7 +1,7 @@
 FROM node:20-alpine AS build
 WORKDIR /app
-ARG VITE_API_URL=http://localhost:4000
-ARG VITE_WS_URL=ws://localhost:4000/socket
+ARG VITE_API_URL=https://learnflow-api-1eef.onrender.com
+ARG VITE_WS_URL=wss://learnflow-api-1eef.onrender.com/socket
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_WS_URL=$VITE_WS_URL
 ENV SVELTE_ADAPTER=static
