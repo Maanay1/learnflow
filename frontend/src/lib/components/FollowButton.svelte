@@ -1,12 +1,18 @@
 <script>
+  import { goto } from '$app/navigation';
   import { social } from '$lib/api';
-  import { toastStore } from '$lib/stores';
+  import { authStore, toastStore } from '$lib/stores';
   export let userId;
   export let following = false;
   let loading = false;
 
   async function toggle() {
     if (loading) return;
+    if (!$authStore.authenticated) {
+      goto('/login');
+      return;
+    }
+
     loading = true;
     const next = !following;
     following = next;

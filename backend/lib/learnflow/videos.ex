@@ -83,6 +83,16 @@ defmodule Learnflow.Videos do
 
   def get_video_view_url(_video, _user, _session_id), do: {:error, :video_unavailable}
 
+  def get_public_video_view_url(%Video{status: "active", video_key: key}) when is_binary(key) and key != "" do
+    if String.starts_with?(key, "http") do
+      {:ok, key}
+    else
+      Storage.generate_read_url(Storage.bucket_videos(), key)
+    end
+  end
+
+  def get_public_video_view_url(_video), do: {:error, :video_unavailable}
+
   def decorate_media_urls(videos) when is_list(videos), do: decorate_thumbnail_urls(videos)
   def decorate_media_urls(%Video{} = video), do: decorate_thumbnail_url(video)
 

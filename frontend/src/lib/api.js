@@ -9,9 +9,18 @@ function csrfToken() {
   return meta || cookie || '';
 }
 
+async function ensureCsrfToken() {
+  let token = csrfToken();
+  if (token || !browser) return token;
+
+  await fetch(`${API_BASE}/api/auth/me`, { credentials: 'include' }).catch(() => null);
+  token = csrfToken();
+  return token;
+}
+
 async function request(method, path, body) {
   const headers = { 'Content-Type': 'application/json' };
-  if (!['GET', 'HEAD'].includes(method)) headers['X-CSRF-Token'] = csrfToken();
+  if (!['GET', 'HEAD'].includes(method)) headers['X-CSRF-Token'] = await ensureCsrfToken();
 
   try {
     const response = await fetch(`${API_BASE}${path}`, {
@@ -43,7 +52,7 @@ async function upload(path, formData) {
   const response = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
     credentials: 'include',
-    headers: { 'X-CSRF-Token': csrfToken() },
+    headers: { 'X-CSRF-Token': await ensureCsrfToken() },
     body: formData
   });
   const data = await response.json().catch(() => ({}));

@@ -23,14 +23,17 @@ defmodule LearnflowWeb.VideoController do
         {:error, :not_found}
 
       video ->
-        video =
+        view_url =
           if viewer && session do
-            case Videos.get_video_view_url(video, viewer, session.id) do
-              {:ok, url} -> Map.put(video, :view_url, url)
-              _ -> video
-            end
+            Videos.get_video_view_url(video, viewer, session.id)
           else
-            video
+            Videos.get_public_video_view_url(video)
+          end
+
+        video =
+          case view_url do
+            {:ok, url} -> Map.put(video, :view_url, url)
+            _ -> video
           end
 
         json(conn, %{video: VideoJSON.video(video)})

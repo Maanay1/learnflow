@@ -6,7 +6,9 @@ defmodule LearnflowWeb.Plugs.CSRFProtection do
   @csrf_exempt_auth_paths ~w(/api/auth/register /api/auth/login)
   def init(opts), do: opts
 
-  def call(%{request_path: path} = conn, _opts) when path in @csrf_exempt_auth_paths, do: conn
+  def call(%{request_path: path} = conn, _opts) when path in @csrf_exempt_auth_paths do
+    ensure_csrf_cookie(conn)
+  end
 
   def call(%{method: method} = conn, _opts) when method in @unsafe do
     token = get_req_header(conn, "x-csrf-token") |> List.first()
@@ -20,6 +22,10 @@ defmodule LearnflowWeb.Plugs.CSRFProtection do
   end
 
   def call(conn, _opts) do
+    ensure_csrf_cookie(conn)
+  end
+
+  defp ensure_csrf_cookie(conn) do
     conn = fetch_cookies(conn)
 
     if Map.has_key?(conn.req_cookies, "csrf_token") do
