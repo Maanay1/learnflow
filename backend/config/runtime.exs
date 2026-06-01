@@ -16,6 +16,12 @@ unless config_env() == :test do
 
   minio_endpoint = System.get_env("MINIO_ENDPOINT", "http://localhost:9000")
   minio_uri = URI.parse(minio_endpoint)
+  minio_region =
+    System.get_env("MINIO_REGION") ||
+      if(String.ends_with?(minio_uri.host || "", ".r2.cloudflarestorage.com"),
+        do: "auto",
+        else: "us-east-1"
+      )
 
   frontend_url =
     System.get_env("FRONTEND_URL") || System.get_env("PUBLIC_URL") || "http://localhost:3000"
@@ -68,7 +74,7 @@ unless config_env() == :test do
     port: minio_uri.port,
     access_key_id: System.get_env("MINIO_ACCESS_KEY", "minioadmin"),
     secret_access_key: System.get_env("MINIO_SECRET_KEY", "minioadmin123"),
-    region: "us-east-1"
+    region: minio_region
 
   config :learnflow, :urls,
     frontend_url: frontend_url,

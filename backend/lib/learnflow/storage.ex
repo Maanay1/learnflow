@@ -21,7 +21,7 @@ defmodule Learnflow.Storage do
       port: uri.port || 9000,
       access_key_id: System.get_env("MINIO_ACCESS_KEY"),
       secret_access_key: System.get_env("MINIO_SECRET_KEY"),
-      region: "us-east-1"
+      region: storage_region(endpoint)
     ]
   end
 
@@ -30,7 +30,12 @@ defmodule Learnflow.Storage do
     uri = URI.parse(endpoint)
 
     config()
-    |> Keyword.merge(scheme: "#{uri.scheme || "http"}://", host: uri.host || "localhost", port: uri.port || 9000)
+    |> Keyword.merge(
+      scheme: "#{uri.scheme || "http"}://",
+      host: uri.host || "localhost",
+      port: uri.port || 9000,
+      region: storage_region(endpoint)
+    )
   end
 
   def bucket_videos, do: System.get_env("MINIO_BUCKET_VIDEOS", "learnflow-videos")
@@ -112,16 +117,20 @@ defmodule Learnflow.Storage do
   def create_buckets_if_not_exist do
     case validate_configuration() do
       :ok ->
-        Enum.each([bucket_videos(), bucket_thumbnails(), bucket_certificates(), bucket_avatars()], fn bucket ->
-          bucket
-          |> ExAws.S3.put_bucket("us-east-1")
-          |> request()
-          |> case do
-            {:ok, _} -> :ok
-            {:error, {:http_error, 409, _}} -> :ok
-            {:error, reason} -> Logger.warning("MinIO bucket setup skipped: #{inspect(reason)}")
-          end
-        end)
+        if r2_endpoint?(System.get_env("MINIO_ENDPOINT", @default_endpoint)) do
+          Logger.info("R2 bucket setup skipped: buckets are managed in Cloudflare")
+        else
+          Enum.each([bucket_videos(), bucket_thumbnails(), bucket_certificates(), bucket_avatars()], fn bucket ->
+            bucket
+            |> ExAws.S3.put_bucket(storage_region(System.get_env("MINIO_ENDPOINT", @default_endpoint)))
+            |> request()
+            |> case do
+              {:ok, _} -> :ok
+              {:error, {:http_error, 409, _}} -> :ok
+              {:error, reason} -> Logger.warning("MinIO bucket setup skipped: #{inspect(reason)}")
+            end
+          end)
+        end
 
       {:error, {:storage_not_configured, missing}} ->
         Logger.warning("MinIO bucket setup skipped: missing #{Enum.join(missing, ", ")}")
@@ -147,5 +156,18 @@ defmodule Learnflow.Storage do
     with :ok <- validate_configuration() do
       ExAws.request(operation, config())
     end
+  end
+
+  defp storage_region(endpoint) do
+    System.get_env("MINIO_REGION") ||
+      if(r2_endpoint?(endpoint), do: "auto", else: "us-east-1")
+  end
+
+  defp r2_endpoint?(endpoint) do
+    endpoint
+    |> URI.parse()
+    |> Map.get(:host, "")
+    |> to_string()
+    |> String.ends_with?(".r2.cloudflarestorage.com")
   end
 end

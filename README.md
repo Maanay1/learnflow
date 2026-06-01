@@ -171,6 +171,7 @@ FRONTEND_URL=https://jarq.me
 COOKIE_SECURE=true
 MINIO_ENDPOINT=https://<S3-compatible API endpoint>
 MINIO_PUBLIC_ENDPOINT=https://<browser-accessible S3-compatible endpoint>
+MINIO_REGION=auto
 MINIO_ACCESS_KEY=<S3 access key>
 MINIO_SECRET_KEY=<S3 secret key>
 MINIO_BUCKET_VIDEOS=learnflow-videos
