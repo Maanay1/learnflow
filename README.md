@@ -175,6 +175,8 @@ Add `https://learnflow-api-1eef.onrender.com/auth/google/callback` to the author
 
 Deploying from the repository root uses [Dockerfile](/Users/bayel/Desktop/JARQ_03/learnflow/Dockerfile) for the backend. For separate backend and frontend Railway services, set the service root directories to `backend` and `frontend` respectively. The backend service can use [backend/Dockerfile](/Users/bayel/Desktop/JARQ_03/learnflow/backend/Dockerfile), and the frontend uses [frontend/Dockerfile](/Users/bayel/Desktop/JARQ_03/learnflow/frontend/Dockerfile) plus [frontend/nginx.conf](/Users/bayel/Desktop/JARQ_03/learnflow/frontend/nginx.conf).
 
+Both backend Dockerfiles run pending Ecto migrations before starting the Phoenix release.
+
 JARQ is configured for a single Ubuntu 24.04 VPS using Docker, GitHub Container Registry, nginx, and GitHub Actions.
 
 ### GitHub Secrets

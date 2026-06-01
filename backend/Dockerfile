@@ -27,4 +27,4 @@ RUN printf '#!/bin/sh\nif [ "$1" = "phx.server" ]; then exec /app/bin/learnflow 
   && chmod +x /usr/local/bin/mix
 
 EXPOSE 4000
-CMD ["bin/learnflow", "start"]
+CMD ["sh", "-c", "bin/learnflow eval 'Learnflow.Release.migrate()' && exec bin/learnflow start"]
