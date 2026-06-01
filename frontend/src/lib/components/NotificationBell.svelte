@@ -71,7 +71,7 @@
     {/if}
   </button>
   {#if open}
-    <div class="absolute right-0 mt-2 w-[360px] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl">
+    <div class="absolute right-0 z-50 mt-2 w-[min(360px,calc(100vw-28px))] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl">
       <div class="flex items-center justify-between border-b border-[var(--border)] p-3">
         <h2 class="font-black">Уведомления</h2>
         <button class="text-sm text-primary" on:click={markAll}>Отметить все прочитанными</button>
