@@ -1,10 +1,10 @@
 <script>
   import { goto } from '$app/navigation';
-  import { dashboard } from '$lib/api';
+  import { auth, dashboard } from '$lib/api';
   import { authStore, toastStore } from '$lib/stores';
   import Avatar from '$lib/components/Avatar.svelte';
   let display_name = '', username = '', bio = '', current = '', password = '', confirm = '';
-  let avatarFile, avatarPreview = '', initialized = false, saving = false, passwordError = '';
+  let avatarFile, avatarPreview = '', initialized = false, saving = false, loggingOut = false, passwordError = '';
   $: if (!$authStore.loading && !$authStore.authenticated) goto('/login');
   $: if ($authStore.user && !initialized) {
     display_name = $authStore.user.display_name || '';
@@ -41,6 +41,16 @@
       goto('/login');
     } catch (requestError) { passwordError = requestError?.data?.error === 'invalid_current_password' ? 'Неверный текущий пароль' : requestError?.data?.error || 'Не удалось изменить пароль'; }
   }
+  async function logout() {
+    loggingOut = true;
+    try {
+      await auth.logout();
+      authStore.logout();
+      goto('/login');
+    } catch {
+      toastStore.addToast('Не удалось выйти из аккаунта. Попробуй ещё раз', 'error');
+    } finally { loggingOut = false; }
+  }
 </script>
 <svelte:head><title>Настройки | JARQ</title></svelte:head>
 <section class="shell max-w-3xl py-8">
@@ -61,7 +71,12 @@
     {#if passwordError}<p class="error">{passwordError}</p>{/if}
     <button class="btn-secondary" disabled={!current || !password || password !== confirm} on:click={changePassword}>Изменить пароль</button>
   </section>
+  <section class="card block">
+    <h2>Аккаунт</h2>
+    <p class="hint">После выхода можно войти в другой аккаунт.</p>
+    <button class="logout" disabled={loggingOut} on:click={logout}>{loggingOut ? 'Выходим...' : 'Выйти из аккаунта'}</button>
+  </section>
 </section>
 <style>
-  h1{margin-bottom:22px;font-size:32px;font-weight:900}.block{display:grid;gap:14px;margin-bottom:18px;padding:20px}h2{font-size:20px;font-weight:800}label{color:#a3a3a3;font-size:13px;font-weight:700}label small{float:right}.avatar{display:flex;align-items:center;gap:16px}.avatar label{color:white}.avatar input{display:none}textarea{min-height:96px;resize:vertical}.error{color:#f87171}
+  h1{margin-bottom:22px;font-size:32px;font-weight:900}.block{display:grid;gap:14px;margin-bottom:18px;padding:20px}h2{font-size:20px;font-weight:800}label{color:#a3a3a3;font-size:13px;font-weight:700}label small{float:right}.avatar{display:flex;align-items:center;gap:16px}.avatar label{color:white}.avatar input{display:none}textarea{min-height:96px;resize:vertical}.error{color:#f87171}.hint{color:var(--text-2);font-size:14px}.logout{justify-self:start;border:1px solid rgba(248,113,113,.45);border-radius:999px;padding:10px 16px;color:#f87171;font-weight:800}.logout:hover{background:rgba(248,113,113,.08)}.logout:disabled{cursor:not-allowed;opacity:.6}@media(max-width:560px){h1{font-size:27px}.block{padding:16px}.avatar{align-items:flex-start;flex-direction:column}}
 </style>
