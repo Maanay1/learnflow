@@ -141,6 +141,17 @@ export const certificates = {
   download: (id) => get(`/api/certificates/${id}/download`)
 };
 
+export const quizzes = {
+  list: () => get('/api/quizzes'),
+  create: (body) => post('/api/quizzes', body),
+  join: (code) => post('/api/quizzes/join', { code }),
+  detail: (id) => get(`/api/quizzes/${id}`),
+  start: (id) => post(`/api/quizzes/${id}/start`),
+  finish: (id) => post(`/api/quizzes/${id}/finish`),
+  submit: (id, answers) => post(`/api/quizzes/${id}/submit`, { answers }),
+  results: (id) => get(`/api/quizzes/${id}/results`)
+};
+
 export const payments = {
   access: (courseId) => get(`/api/courses/${courseId}/purchase`),
   purchase: (courseId) => post(`/api/courses/${courseId}/purchase`),

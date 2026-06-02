@@ -7,31 +7,35 @@ defmodule Learnflow.Videos.Video do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "videos" do
-    belongs_to :creator, Learnflow.Accounts.User
-    many_to_many :tags, Learnflow.Videos.SubjectTag,
+    belongs_to(:creator, Learnflow.Accounts.User)
+
+    many_to_many(:tags, Learnflow.Videos.SubjectTag,
       join_through: Learnflow.Videos.VideoTag,
       join_keys: [video_id: :id, tag_id: :id]
-    has_many :chapters, Learnflow.Videos.VideoChapter
-    has_many :comments, Learnflow.Social.Comment
-    has_many :watch_progress_entries, Learnflow.Videos.WatchProgress
-    field :title, :string
-    field :description, :string
-    field :slug, :string
-    field :status, :string, default: "pending"
-    field :difficulty, :string
-    field :language, :string, default: "ru"
-    field :duration_seconds, :integer
-    field :thumbnail_key, :string
-    field :video_key, :string
-    field :view_count, :integer, default: 0
-    field :has_subtitles, :boolean, default: false
-    field :subtitle_languages, {:array, :string}, default: []
-    field :summary, :string
-    field :ai_processed_at, :utc_datetime_usec
-    field :is_liked, :boolean, virtual: true, default: false
-    field :is_saved, :boolean, virtual: true, default: false
-    field :view_url, :string, virtual: true
-    field :thumbnail_url, :string, virtual: true
+    )
+
+    has_many(:chapters, Learnflow.Videos.VideoChapter)
+    has_many(:comments, Learnflow.Social.Comment)
+    has_many(:watch_progress_entries, Learnflow.Videos.WatchProgress)
+    field(:title, :string)
+    field(:description, :string)
+    field(:slug, :string)
+    field(:status, :string, default: "pending")
+    field(:format, :string, default: "media")
+    field(:difficulty, :string)
+    field(:language, :string, default: "ru")
+    field(:duration_seconds, :integer)
+    field(:thumbnail_key, :string)
+    field(:video_key, :string)
+    field(:view_count, :integer, default: 0)
+    field(:has_subtitles, :boolean, default: false)
+    field(:subtitle_languages, {:array, :string}, default: [])
+    field(:summary, :string)
+    field(:ai_processed_at, :utc_datetime_usec)
+    field(:is_liked, :boolean, virtual: true, default: false)
+    field(:is_saved, :boolean, virtual: true, default: false)
+    field(:view_url, :string, virtual: true)
+    field(:thumbnail_url, :string, virtual: true)
     timestamps(type: :utc_datetime_usec)
   end
 
@@ -43,6 +47,7 @@ defmodule Learnflow.Videos.Video do
       :description,
       :slug,
       :status,
+      :format,
       :difficulty,
       :language,
       :duration_seconds,
@@ -59,11 +64,23 @@ defmodule Learnflow.Videos.Video do
     |> validate_length(:slug, max: 200)
     |> validate_format(:slug, ~r/^[a-z0-9-]+$/)
     |> validate_inclusion(:status, ~w(pending active rejected deleted))
+    |> validate_inclusion(:format, ~w(media jq))
     |> validate_inclusion(:difficulty, ~w(beginner intermediate advanced), allow_nil: true)
     |> validate_length(:language, max: 10)
     |> validate_inclusion(:language, @languages)
     |> validate_number(:duration_seconds, greater_than_or_equal_to: 0)
+    |> validate_jq_duration()
     |> validate_number(:view_count, greater_than_or_equal_to: 0)
     |> unique_constraint(:slug)
+  end
+
+  defp validate_jq_duration(%Ecto.Changeset{} = changeset) do
+    case {get_field(changeset, :format), get_field(changeset, :duration_seconds)} do
+      {"jq", duration} when is_integer(duration) and duration > 180 ->
+        add_error(changeset, :duration_seconds, "JQ must be 180 seconds or shorter")
+
+      _ ->
+        changeset
+    end
   end
 end

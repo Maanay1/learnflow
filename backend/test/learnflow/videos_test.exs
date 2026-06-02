@@ -31,15 +31,36 @@ defmodule Learnflow.VideosTest do
 
   defp active_video(attrs \\ %{}) do
     c = creator()
-    {:ok, video} = Videos.create_video(c, Map.merge(%{"title" => "Algebra Basics", "difficulty" => "beginner", "language" => "ru"}, attrs))
-    {:ok, video} = Videos.confirm_upload(video, %{"video_key" => "videos/#{video.id}/source.mp4", "thumbnail_key" => "thumbnails/#{video.id}/thumb.jpg", "duration_seconds" => 120})
+
+    {:ok, video} =
+      Videos.create_video(
+        c,
+        Map.merge(
+          %{"title" => "Algebra Basics", "difficulty" => "beginner", "language" => "ru"},
+          attrs
+        )
+      )
+
+    {:ok, video} =
+      Videos.confirm_upload(video, %{
+        "video_key" => "videos/#{video.id}/source.mp4",
+        "thumbnail_key" => "thumbnails/#{video.id}/thumb.jpg",
+        "duration_seconds" => 120
+      })
+
     video
   end
 
   test "create_video/2 creates pending video and generates url-safe slug" do
     c = creator()
 
-    assert {:ok, video} = Videos.create_video(c, %{"title" => "Intro to Elixir!", "difficulty" => "beginner", "language" => "en"})
+    assert {:ok, video} =
+             Videos.create_video(c, %{
+               "title" => "Intro to Elixir!",
+               "difficulty" => "beginner",
+               "language" => "en"
+             })
+
     assert video.status == "pending"
     assert video.creator_id == c.id
     assert video.slug =~ ~r/^intro-to-elixir-[a-f0-9-]{8}$/
@@ -52,7 +73,9 @@ defmodule Learnflow.VideosTest do
     assert key == "videos/#{video.id}/source.mp4"
     assert String.contains?(url, "learnflow-videos")
     assert {:error, :invalid_video_type} = Videos.request_upload_url(video, "video/avi", 100_000)
-    assert {:error, :file_too_large} = Videos.request_upload_url(video, "video/mp4", 5_000_000_001)
+
+    assert {:error, :file_too_large} =
+             Videos.request_upload_url(video, "video/mp4", 5_000_000_001)
   end
 
   test "get_feed/2 paginates with composite cursor" do
@@ -69,13 +92,37 @@ defmodule Learnflow.VideosTest do
     assert Enum.sort([first.id, second.id]) == Enum.sort([hd(page1).id, hd(page2).id])
   end
 
+  test "get_feed/2 keeps JQ reels separate from media" do
+    media = active_video(%{"title" => "Long lesson"})
+    jq = active_video(%{"title" => "Quick JQ", "format" => "jq"})
+
+    {jq_feed, _cursor} = Videos.get_feed(nil, %{"format" => "jq"})
+    {media_feed, _cursor} = Videos.get_feed(nil, %{"format" => "media"})
+
+    assert Enum.any?(jq_feed, &(&1.id == jq.id))
+    refute Enum.any?(jq_feed, &(&1.id == media.id))
+    assert Enum.any?(media_feed, &(&1.id == media.id))
+    refute Enum.any?(media_feed, &(&1.id == jq.id))
+  end
+
   test "search_videos/2 uses full text search and filters" do
-    video = active_video(%{"title" => "Quantum Mechanics", "difficulty" => "advanced", "language" => "en"})
+    video =
+      active_video(%{
+        "title" => "Quantum Mechanics",
+        "difficulty" => "advanced",
+        "language" => "en"
+      })
 
     {:ok, video_id} = Ecto.UUID.dump(video.id)
-    Repo.query!("UPDATE videos SET search_vector = setweight(to_tsvector('simple', title), 'A') || setweight(to_tsvector('simple', coalesce(description, '')), 'B') WHERE id = $1", [video_id])
 
-    {results, _cursor} = Videos.search_videos("Quantum", %{"difficulty" => "advanced", "language" => "en"})
+    Repo.query!(
+      "UPDATE videos SET search_vector = setweight(to_tsvector('simple', title), 'A') || setweight(to_tsvector('simple', coalesce(description, '')), 'B') WHERE id = $1",
+      [video_id]
+    )
+
+    {results, _cursor} =
+      Videos.search_videos("Quantum", %{"difficulty" => "advanced", "language" => "en"})
+
     assert Enum.any?(results, &(&1.id == video.id))
   end
 
@@ -83,9 +130,17 @@ defmodule Learnflow.VideosTest do
     user = learner()
     video = active_video()
 
-    assert {:ok, %WatchProgress{seconds_watched: 10}} = Videos.update_watch_progress(user.id, video.id, 10)
-    assert {:ok, %WatchProgress{seconds_watched: 42}} = Videos.update_watch_progress(user.id, video.id, 42)
+    assert {:ok, %WatchProgress{seconds_watched: 10}} =
+             Videos.update_watch_progress(user.id, video.id, 10)
 
-    assert Repo.one(from p in WatchProgress, where: p.user_id == ^user.id and p.video_id == ^video.id, select: count()) == 1
+    assert {:ok, %WatchProgress{seconds_watched: 42}} =
+             Videos.update_watch_progress(user.id, video.id, 42)
+
+    assert Repo.one(
+             from(p in WatchProgress,
+               where: p.user_id == ^user.id and p.video_id == ^video.id,
+               select: count()
+             )
+           ) == 1
   end
 end

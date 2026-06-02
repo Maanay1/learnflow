@@ -10,7 +10,8 @@ defmodule LearnflowWeb.AuthController do
 
   def register(conn, params) do
     with {:ok, user} <- Accounts.register_user(params),
-         {:ok, token, _session} <- Accounts.create_session(user, client_ip(conn), user_agent(conn)) do
+         {:ok, token, _session} <-
+           Accounts.create_session(user, client_ip(conn), user_agent(conn)) do
       conn
       |> put_status(:created)
       |> put_session_cookie(token)
@@ -57,7 +58,11 @@ defmodule LearnflowWeb.AuthController do
     end
 
     conn
-    |> delete_resp_cookie(@session_cookie, http_only: true, secure: cookie_secure?(), same_site: cookie_same_site())
+    |> delete_resp_cookie(@session_cookie,
+      http_only: true,
+      secure: cookie_secure?(),
+      same_site: cookie_same_site()
+    )
     |> json(%{ok: true})
   end
 
@@ -99,7 +104,7 @@ defmodule LearnflowWeb.AuthController do
       {:ok, session_token} ->
         conn
         |> put_session_cookie(session_token)
-        |> redirect(external: "#{frontend_url()}/feed")
+        |> redirect(external: "#{frontend_url()}/jq")
 
       {:error, reason} ->
         Logger.warning("Google OAuth session bridge failed: #{inspect(reason)}")
@@ -185,7 +190,9 @@ defmodule LearnflowWeb.AuthController do
   end
 
   defp google_callback_url, do: "#{backend_url()}/auth/google/callback"
-  defp google_session_url(token), do: "#{frontend_url()}/auth/google/session?ticket=#{URI.encode_www_form(token)}"
+
+  defp google_session_url(token),
+    do: "#{frontend_url()}/auth/google/session?ticket=#{URI.encode_www_form(token)}"
 
   defp google_state do
     nonce = :crypto.strong_rand_bytes(32) |> Base.url_encode64(padding: false)
@@ -193,12 +200,17 @@ defmodule LearnflowWeb.AuthController do
   end
 
   defp verify_google_state(state) do
-    case Phoenix.Token.verify(LearnflowWeb.Endpoint, @google_state_salt, state, max_age: @google_state_max_age) do
+    case Phoenix.Token.verify(LearnflowWeb.Endpoint, @google_state_salt, state,
+           max_age: @google_state_max_age
+         ) do
       {:ok, _nonce} -> :ok
       {:error, _reason} -> {:error, :invalid_google_state}
     end
   end
 
-  defp backend_url, do: System.get_env("BACKEND_URL", "http://localhost:4000") |> String.trim_trailing("/")
-  defp frontend_url, do: System.get_env("FRONTEND_URL", "http://localhost:3000") |> String.trim_trailing("/")
+  defp backend_url,
+    do: System.get_env("BACKEND_URL", "http://localhost:4000") |> String.trim_trailing("/")
+
+  defp frontend_url,
+    do: System.get_env("FRONTEND_URL", "http://localhost:3000") |> String.trim_trailing("/")
 end

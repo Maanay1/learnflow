@@ -11,11 +11,17 @@ defmodule LearnflowWeb.AuthControllerTest do
     "password" => "learn1234"
   }
 
-  test "POST /api/auth/register creates a user and sets an http-only session cookie", %{conn: conn} do
+  test "POST /api/auth/register creates a user and sets an http-only session cookie", %{
+    conn: conn
+  } do
     conn = post(conn, "/api/auth/register", @valid_attrs)
 
     assert %{"user" => %{"username" => "learner_api"}} = json_response(conn, 201)
-    assert [cookie] = get_resp_header(conn, "set-cookie")
+
+    cookie =
+      get_resp_header(conn, "set-cookie") |> Enum.find(&String.contains?(&1, "session_token="))
+
+    assert cookie
     assert cookie =~ "session_token="
     assert cookie =~ "HttpOnly"
     assert cookie =~ "SameSite=Lax"
@@ -24,21 +30,33 @@ defmodule LearnflowWeb.AuthControllerTest do
   test "POST /api/auth/login authenticates and sets a session cookie", %{conn: conn} do
     {:ok, _user} = Accounts.register_user(@valid_attrs)
 
-    conn = post(conn, "/api/auth/login", %{"email" => @valid_attrs["email"], "password" => @valid_attrs["password"]})
+    conn =
+      post(conn, "/api/auth/login", %{
+        "email" => @valid_attrs["email"],
+        "password" => @valid_attrs["password"]
+      })
 
     assert %{"user" => %{"username" => "learner_api"}} = json_response(conn, 200)
-    assert get_resp_header(conn, "set-cookie") |> Enum.any?(&String.contains?(&1, "session_token="))
+
+    assert get_resp_header(conn, "set-cookie")
+           |> Enum.any?(&String.contains?(&1, "session_token="))
   end
 
   test "POST /api/auth/login returns locked after 5 failed attempts", %{conn: conn} do
     {:ok, _user} = Accounts.register_user(@valid_attrs)
 
     for _ <- 1..4 do
-      conn = post(build_conn(), "/api/auth/login", %{"email" => @valid_attrs["email"], "password" => "wrong1234"})
+      conn =
+        post(build_conn(), "/api/auth/login", %{
+          "email" => @valid_attrs["email"],
+          "password" => "wrong1234"
+        })
+
       assert json_response(conn, 401)["error"] == "invalid_credentials"
     end
 
-    conn = post(conn, "/api/auth/login", %{"email" => @valid_attrs["email"], "password" => "wrong1234"})
+    conn =
+      post(conn, "/api/auth/login", %{"email" => @valid_attrs["email"], "password" => "wrong1234"})
 
     assert %{"error" => "account_locked", "locked_until" => _} = json_response(conn, 423)
   end
@@ -70,16 +88,20 @@ defmodule LearnflowWeb.AuthControllerTest do
 
     assert %{"ok" => true} = json_response(conn, 200)
     assert Repo.get(Session, session.id) == nil
-    assert get_resp_header(conn, "set-cookie") |> Enum.any?(&String.contains?(&1, "session_token=;"))
+
+    assert get_resp_header(conn, "set-cookie")
+           |> Enum.any?(&String.contains?(&1, "session_token=;"))
   end
 
-  test "GET /auth/google/session rotates the bridge ticket and sets a session cookie", %{conn: conn} do
+  test "GET /auth/google/session rotates the bridge ticket and sets a session cookie", %{
+    conn: conn
+  } do
     {:ok, user} = Accounts.register_user(@valid_attrs)
     {:ok, ticket, _session} = Accounts.create_session(user, "127.0.0.1", "ExUnit")
 
     conn = get(conn, "/auth/google/session?ticket=#{URI.encode_www_form(ticket)}")
 
-    assert redirected_to(conn) == "http://localhost:3000/feed"
+    assert redirected_to(conn) == "http://localhost:3000/jq"
     session_token = conn.resp_cookies["session_token"].value
     refute session_token == ticket
     assert Accounts.get_user_by_session_token(ticket) == nil
@@ -91,7 +113,11 @@ defmodule LearnflowWeb.AuthControllerTest do
     query = conn |> redirected_to() |> URI.parse() |> Map.fetch!(:query) |> URI.decode_query()
 
     assert query["redirect_uri"] == "http://localhost:4000/auth/google/callback"
-    assert {:ok, _nonce} = Phoenix.Token.verify(LearnflowWeb.Endpoint, "google oauth state", query["state"], max_age: 600)
+
+    assert {:ok, _nonce} =
+             Phoenix.Token.verify(LearnflowWeb.Endpoint, "google oauth state", query["state"],
+               max_age: 600
+             )
   end
 
   test "GET /auth/google/callback rejects a callback without state", %{conn: conn} do

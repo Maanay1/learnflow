@@ -1,6 +1,15 @@
 # JARQ
 
-JARQ is a dark-first educational social platform built with Phoenix, PostgreSQL, MinIO, Phoenix Channels, SvelteKit, and TailwindCSS. It supports creator uploads, signed private video access, social follows, likes, comments, dashboards, search, AI subtitles/summaries, and GDPR-style user export.
+JARQ is a dark-first educational social platform built with Phoenix, PostgreSQL, MinIO, Phoenix Channels, SvelteKit, and TailwindCSS. Its main learning format is JQ: short vertical educational reels with likes, comments, saves, and chat sharing. Regular long-form media remains available separately. JARQ also supports live classroom quizzes, creator uploads, signed private video access, social follows, dashboards, search, AI subtitles/summaries, group chats, and GDPR-style user export.
+
+## Product Modules
+
+| Module | Purpose |
+| --- | --- |
+| `JQ` | Short vertical learning reels, uploaded by creators and separated from regular media |
+| `Media` | Longer videos for detailed explanations and course materials |
+| `Live quizzes` | Four-option classroom tests with join codes, creator-controlled start, timer, points, and leaderboard |
+| `Chats` | Direct messages and creator-managed group channels for collaborative work |
 
 ## Screenshots
 
@@ -105,6 +114,14 @@ learnflow/
 | `GET` | `/api/dashboard/export` | GDPR JSON export |
 | `GET` | `/api/recommendations` | Personalized recommendations |
 | `GET` | `/api/search` | Full-text search |
+| `GET` | `/api/quizzes` | Creator's live quizzes |
+| `POST` | `/api/quizzes` | Create a live quiz and generate its join code |
+| `POST` | `/api/quizzes/join` | Join a waiting quiz by code |
+| `GET` | `/api/quizzes/:id` | Quiz lobby or active test state |
+| `POST` | `/api/quizzes/:id/start` | Start the quiz as its creator |
+| `POST` | `/api/quizzes/:id/finish` | Finish the quiz as its creator |
+| `POST` | `/api/quizzes/:id/submit` | Submit participant answers |
+| `GET` | `/api/quizzes/:id/results` | Quiz leaderboard |
 
 ## Contributing
 

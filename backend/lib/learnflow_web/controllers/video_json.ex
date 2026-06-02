@@ -13,6 +13,7 @@ defmodule LearnflowWeb.VideoJSON do
       description: v.description,
       slug: v.slug,
       status: v.status,
+      format: v.format,
       difficulty: v.difficulty,
       language: v.language,
       duration_seconds: v.duration_seconds,
@@ -30,7 +31,11 @@ defmodule LearnflowWeb.VideoJSON do
       is_saved: Map.get(v, :is_saved, false),
       creator: v |> loaded_one(:creator) |> Accounts.public_user(),
       tags: Enum.map(loaded_assoc(v, :tags), &Map.take(&1, [:id, :name, :slug, :color])),
-      chapters: Enum.map(loaded_assoc(v, :chapters), &Map.take(&1, [:id, :title, :start_seconds, :position]))
+      chapters:
+        Enum.map(
+          loaded_assoc(v, :chapters),
+          &Map.take(&1, [:id, :title, :start_seconds, :position])
+        )
     }
   end
 

@@ -10,7 +10,11 @@ defmodule Learnflow.Videos do
   alias Learnflow.Workers.TranscribeVideoJob
 
   @allowed_video_content_types %{"video/mp4" => "mp4", "video/webm" => "webm"}
-  @allowed_thumbnail_content_types %{"image/jpeg" => "jpg", "image/png" => "png", "image/webp" => "webp"}
+  @allowed_thumbnail_content_types %{
+    "image/jpeg" => "jpg",
+    "image/png" => "png",
+    "image/webp" => "webp"
+  }
   @max_video_bytes 2_000_000_000
   @default_limit 20
   @max_limit 50
@@ -36,7 +40,13 @@ defmodule Learnflow.Videos do
          :ok <- validate_video_size(file_size_bytes) do
       key = "videos/#{video.id}/source.#{ext}"
 
-      with {:ok, url} <- Storage.generate_upload_url(Storage.bucket_videos(), key, content_type, file_size_bytes) do
+      with {:ok, url} <-
+             Storage.generate_upload_url(
+               Storage.bucket_videos(),
+               key,
+               content_type,
+               file_size_bytes
+             ) do
         {:ok, url, key}
       end
     end
@@ -46,7 +56,13 @@ defmodule Learnflow.Videos do
     with {:ok, ext} <- thumbnail_extension(content_type) do
       key = "thumbnails/#{video.id}/thumb.#{ext}"
 
-      with {:ok, url} <- Storage.generate_upload_url(Storage.bucket_thumbnails(), key, content_type, 25_000_000) do
+      with {:ok, url} <-
+             Storage.generate_upload_url(
+               Storage.bucket_thumbnails(),
+               key,
+               content_type,
+               25_000_000
+             ) do
         {:ok, url, key}
       end
     end
@@ -73,7 +89,8 @@ defmodule Learnflow.Videos do
     end
   end
 
-  def get_video_view_url(%Video{status: "active", video_key: key}, user, session_id) when is_binary(key) and key != "" do
+  def get_video_view_url(%Video{status: "active", video_key: key}, user, session_id)
+      when is_binary(key) and key != "" do
     if String.starts_with?(key, "http") do
       {:ok, key}
     else
@@ -83,7 +100,8 @@ defmodule Learnflow.Videos do
 
   def get_video_view_url(_video, _user, _session_id), do: {:error, :video_unavailable}
 
-  def get_public_video_view_url(%Video{status: "active", video_key: key}) when is_binary(key) and key != "" do
+  def get_public_video_view_url(%Video{status: "active", video_key: key})
+      when is_binary(key) and key != "" do
     if String.starts_with?(key, "http") do
       {:ok, key}
     else
@@ -103,13 +121,15 @@ defmodule Learnflow.Videos do
     cursor = parse_cursor(Map.get(opts, "cursor"))
 
     query =
-      from v in Video,
+      from(v in Video,
         where: v.status == "active",
         preload: [:creator, :tags],
         limit: ^(limit + 1)
+      )
 
     query =
       query
+      |> maybe_filter(:format, Map.get(opts, "format"))
       |> maybe_boost_followed(user)
       |> maybe_filter(:difficulty, Map.get(opts, "difficulty"))
       |> maybe_filter(:language, Map.get(opts, "language"))
@@ -127,7 +147,11 @@ defmodule Learnflow.Videos do
     video =
       Video
       |> where([v], v.slug == ^slug and v.status == "active")
-      |> preload([:creator, :tags, chapters: ^from(c in VideoChapter, order_by: [asc: c.position])])
+      |> preload([
+        :creator,
+        :tags,
+        chapters: ^from(c in VideoChapter, order_by: [asc: c.position])
+      ])
       |> Repo.one()
 
     if video do
@@ -157,7 +181,12 @@ defmodule Learnflow.Videos do
       |> maybe_duration(Map.get(opts, "duration_max_seconds") || Map.get(opts, "duration_max"))
       |> maybe_filter_tags(tags)
       |> maybe_cursor(cursor)
-      |> order_by([v], [desc: fragment("ts_rank(?, plainto_tsquery('simple', ?))", v.search_vector, ^query_string), desc: v.inserted_at, desc: v.id])
+      |> order_by([v],
+        desc:
+          fragment("ts_rank(?, plainto_tsquery('simple', ?))", v.search_vector, ^query_string),
+        desc: v.inserted_at,
+        desc: v.id
+      )
       |> limit(^(limit + 1))
       |> preload([:creator, :tags])
       |> Repo.all()
@@ -208,7 +237,12 @@ defmodule Learnflow.Videos do
     Repo.transaction(fn ->
       progress =
         %WatchProgress{}
-        |> WatchProgress.changeset(%{user_id: user_id, video_id: video_id, completed: true, last_watched_at: now})
+        |> WatchProgress.changeset(%{
+          user_id: user_id,
+          video_id: video_id,
+          completed: true,
+          last_watched_at: now
+        })
         |> Repo.insert!(
           on_conflict: [set: [completed: true, last_watched_at: now, updated_at: now]],
           conflict_target: [:user_id, :video_id],
@@ -222,7 +256,7 @@ defmodule Learnflow.Videos do
 
   def add_chapters(%Video{} = video, chapters_list) when is_list(chapters_list) do
     Repo.transaction(fn ->
-      Repo.delete_all(from c in VideoChapter, where: c.video_id == ^video.id)
+      Repo.delete_all(from(c in VideoChapter, where: c.video_id == ^video.id))
 
       chapters =
         chapters_list
@@ -243,7 +277,7 @@ defmodule Learnflow.Videos do
     Video
     |> where([v], v.creator_id == ^user_id and v.status == "active")
     |> preload([:tags, :creator])
-    |> order_by([v], [desc: v.inserted_at])
+    |> order_by([v], desc: v.inserted_at)
     |> Repo.all()
     |> decorate_thumbnail_urls()
   end
@@ -251,28 +285,35 @@ defmodule Learnflow.Videos do
   defp maybe_issue_certificates(user_id) do
     playlist_ids =
       Repo.all(
-        from pv in PlaylistVideo,
+        from(pv in PlaylistVideo,
           join: p in assoc(pv, :playlist),
           where: p.user_id == ^user_id,
           group_by: pv.playlist_id,
           select: pv.playlist_id
+        )
       )
 
     Enum.each(playlist_ids, fn playlist_id ->
       complete? =
         Repo.one(
-          from pv in PlaylistVideo,
+          from(pv in PlaylistVideo,
             left_join: wp in WatchProgress,
             on: wp.video_id == pv.video_id and wp.user_id == ^user_id and wp.completed == true,
             where: pv.playlist_id == ^playlist_id,
             select: count(pv.video_id) == count(wp.video_id)
+          )
         )
 
       if complete? do
         cert_no = "LF-#{String.slice(user_id, 0, 8)}-#{String.slice(playlist_id, 0, 8)}"
 
         %Certificate{}
-        |> Certificate.changeset(%{user_id: user_id, playlist_id: playlist_id, certificate_number: cert_no, issued_at: utc_now()})
+        |> Certificate.changeset(%{
+          user_id: user_id,
+          playlist_id: playlist_id,
+          certificate_number: cert_no,
+          issued_at: utc_now()
+        })
         |> Repo.insert(on_conflict: :nothing, conflict_target: :certificate_number)
       end
     end)
@@ -282,10 +323,10 @@ defmodule Learnflow.Videos do
 
   defp attach_tags(video, tags) when is_list(tags) do
     tag_slugs = Enum.map(tags, &slugify/1)
-    tag_rows = Repo.all(from t in SubjectTag, where: t.slug in ^tag_slugs)
+    tag_rows = Repo.all(from(t in SubjectTag, where: t.slug in ^tag_slugs))
     now = utc_now()
 
-    Repo.delete_all(from vt in Learnflow.Videos.VideoTag, where: vt.video_id == ^video.id)
+    Repo.delete_all(from(vt in Learnflow.Videos.VideoTag, where: vt.video_id == ^video.id))
 
     rows =
       Enum.map(tag_rows, fn tag ->
@@ -298,9 +339,11 @@ defmodule Learnflow.Videos do
 
   defp preload_video(video), do: Repo.preload(video, [:creator, :tags, :chapters])
 
-  defp decorate_thumbnail_urls(videos) when is_list(videos), do: Enum.map(videos, &decorate_thumbnail_url/1)
+  defp decorate_thumbnail_urls(videos) when is_list(videos),
+    do: Enum.map(videos, &decorate_thumbnail_url/1)
 
-  defp decorate_thumbnail_url(%Video{thumbnail_key: key} = video) when is_binary(key) and key != "" do
+  defp decorate_thumbnail_url(%Video{thumbnail_key: key} = video)
+       when is_binary(key) and key != "" do
     cond do
       String.starts_with?(key, ["http://", "https://"]) ->
         %{video | thumbnail_url: key}
@@ -335,8 +378,12 @@ defmodule Learnflow.Videos do
     |> String.trim("-")
   end
 
-  defp video_extension(content_type), do: content_type_lookup(@allowed_video_content_types, content_type, :invalid_video_type)
-  defp thumbnail_extension(content_type), do: content_type_lookup(@allowed_thumbnail_content_types, content_type, :invalid_thumbnail_type)
+  defp video_extension(content_type),
+    do: content_type_lookup(@allowed_video_content_types, content_type, :invalid_video_type)
+
+  defp thumbnail_extension(content_type),
+    do:
+      content_type_lookup(@allowed_thumbnail_content_types, content_type, :invalid_thumbnail_type)
 
   defp content_type_lookup(map, content_type, error) do
     case Map.fetch(map, to_string(content_type)) do
@@ -345,14 +392,22 @@ defmodule Learnflow.Videos do
     end
   end
 
-  defp validate_video_size(size) when is_integer(size) and size <= @max_video_bytes and size > 0, do: :ok
-  defp validate_video_size(size) when is_binary(size), do: size |> String.to_integer() |> validate_video_size()
+  defp validate_video_size(size) when is_integer(size) and size <= @max_video_bytes and size > 0,
+    do: :ok
+
+  defp validate_video_size(size) when is_binary(size),
+    do: size |> String.to_integer() |> validate_video_size()
+
   defp validate_video_size(_size), do: {:error, :file_too_large}
 
-  defp clamp_watch_seconds(seconds, %Video{duration_seconds: duration}) when is_integer(duration) and duration > 0, do: min(seconds, duration)
+  defp clamp_watch_seconds(seconds, %Video{duration_seconds: duration})
+       when is_integer(duration) and duration > 0,
+       do: min(seconds, duration)
+
   defp clamp_watch_seconds(seconds, _video), do: seconds
 
-  defp completed_by_duration?(seconds, %Video{duration_seconds: duration}) when is_integer(duration) and duration > 0 do
+  defp completed_by_duration?(seconds, %Video{duration_seconds: duration})
+       when is_integer(duration) and duration > 0 do
     seconds / duration >= 0.95
   end
 
@@ -362,13 +417,19 @@ defmodule Learnflow.Videos do
   defp maybe_boost_followed(query, %{id: nil}), do: query
   defp maybe_boost_followed(query, _user), do: query
 
-  defp order_feed(query, nil), do: order_by(query, [v], [desc: v.inserted_at, desc: v.id])
+  defp order_feed(query, nil), do: order_by(query, [v], desc: v.inserted_at, desc: v.id)
+
   defp order_feed(query, %{id: user_id}) do
-    order_by(query, [v], [
-      desc: fragment("CASE WHEN EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = ? AND f.following_id = ?) THEN 1 ELSE 0 END", type(^user_id, :binary_id), v.creator_id),
+    order_by(query, [v],
+      desc:
+        fragment(
+          "CASE WHEN EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = ? AND f.following_id = ?) THEN 1 ELSE 0 END",
+          type(^user_id, :binary_id),
+          v.creator_id
+        ),
       desc: v.inserted_at,
       desc: v.id
-    ])
+    )
   end
 
   defp maybe_filter(query, _field, nil), do: query
@@ -377,13 +438,24 @@ defmodule Learnflow.Videos do
 
   defp maybe_duration(query, nil), do: query
   defp maybe_duration(query, ""), do: query
-  defp maybe_duration(query, seconds), do: where(query, [v], v.duration_seconds <= ^to_integer(seconds))
+
+  defp maybe_duration(query, seconds),
+    do: where(query, [v], v.duration_seconds <= ^to_integer(seconds))
 
   defp maybe_filter_tags(query, []), do: query
-  defp maybe_filter_tags(query, tags), do: join(query, :inner, [v], t in assoc(v, :tags), on: t.slug in ^tags)
+
+  defp maybe_filter_tags(query, tags),
+    do: join(query, :inner, [v], t in assoc(v, :tags), on: t.slug in ^tags)
 
   defp maybe_cursor(query, nil), do: query
-  defp maybe_cursor(query, {inserted_at, id}), do: where(query, [v], v.inserted_at < ^inserted_at or (v.inserted_at == ^inserted_at and v.id < ^id))
+
+  defp maybe_cursor(query, {inserted_at, id}),
+    do:
+      where(
+        query,
+        [v],
+        v.inserted_at < ^inserted_at or (v.inserted_at == ^inserted_at and v.id < ^id)
+      )
 
   defp split_page(rows, limit) do
     videos = Enum.take(rows, limit)
@@ -392,15 +464,20 @@ defmodule Learnflow.Videos do
   end
 
   defp encode_cursor(nil), do: nil
-  defp encode_cursor(video), do: Base.url_encode64("#{DateTime.to_iso8601(video.inserted_at)}|#{video.id}", padding: false)
+
+  defp encode_cursor(video),
+    do: Base.url_encode64("#{DateTime.to_iso8601(video.inserted_at)}|#{video.id}", padding: false)
 
   defp parse_cursor(nil), do: nil
   defp parse_cursor(""), do: nil
+
   defp parse_cursor(cursor) do
-    decoded = Base.url_decode64(cursor, padding: false) |> case do
-      {:ok, value} -> value
-      :error -> cursor
-    end
+    decoded =
+      Base.url_decode64(cursor, padding: false)
+      |> case do
+        {:ok, value} -> value
+        :error -> cursor
+      end
 
     case String.split(decoded, "|") do
       [timestamp, id] ->
@@ -417,20 +494,33 @@ defmodule Learnflow.Videos do
     _ -> nil
   end
 
-  defp decorate_viewer_flags(video, nil), do: Map.merge(video, %{is_liked: false, is_saved: false})
+  defp decorate_viewer_flags(video, nil),
+    do: Map.merge(video, %{is_liked: false, is_saved: false})
+
   defp decorate_viewer_flags(video, viewer_id) do
-    is_liked = Repo.exists?(from l in Like, where: l.user_id == ^viewer_id and l.video_id == ^video.id)
-    is_saved = Repo.exists?(from s in Save, where: s.user_id == ^viewer_id and s.video_id == ^video.id)
+    is_liked =
+      Repo.exists?(from(l in Like, where: l.user_id == ^viewer_id and l.video_id == ^video.id))
+
+    is_saved =
+      Repo.exists?(from(s in Save, where: s.user_id == ^viewer_id and s.video_id == ^video.id))
+
     Map.merge(video, %{is_liked: is_liked, is_saved: is_saved})
   end
 
-  defp increment_view_count(video_id), do: Repo.update_all(from(v in Video, where: v.id == ^video_id), inc: [view_count: 1])
+  defp increment_view_count(video_id),
+    do: Repo.update_all(from(v in Video, where: v.id == ^video_id), inc: [view_count: 1])
 
   defp notify_followers_new_video(%Video{status: "active"} = video) do
-    follower_ids = Repo.all(from f in Follow, where: f.following_id == ^video.creator_id, select: f.follower_id)
+    follower_ids =
+      Repo.all(
+        from(f in Follow, where: f.following_id == ^video.creator_id, select: f.follower_id)
+      )
 
     Enum.each(follower_ids, fn user_id ->
-      Notifications.create_notification(user_id, "new_video_from_followed", %{actor_id: video.creator_id, video_id: video.id})
+      Notifications.create_notification(user_id, "new_video_from_followed", %{
+        actor_id: video.creator_id,
+        video_id: video.id
+      })
     end)
   end
 
@@ -448,8 +538,11 @@ defmodule Learnflow.Videos do
 
   defp schedule_ai_processing(_video), do: :ok
 
-  defp chapter_attrs(video_id, {title, start_seconds, position}), do: %{video_id: video_id, title: title, start_seconds: start_seconds, position: position}
-  defp chapter_attrs(video_id, attrs), do: attrs |> normalize_attrs() |> Map.put("video_id", video_id)
+  defp chapter_attrs(video_id, {title, start_seconds, position}),
+    do: %{video_id: video_id, title: title, start_seconds: start_seconds, position: position}
+
+  defp chapter_attrs(video_id, attrs),
+    do: attrs |> normalize_attrs() |> Map.put("video_id", video_id)
 
   defp list_opt(opts, key) do
     case Map.get(opts, key) do
@@ -459,10 +552,15 @@ defmodule Learnflow.Videos do
     end
   end
 
-  defp limit(opts), do: opts |> Map.get("limit", @default_limit) |> to_integer() |> min(@max_limit) |> max(1)
+  defp limit(opts),
+    do: opts |> Map.get("limit", @default_limit) |> to_integer() |> min(@max_limit) |> max(1)
+
   defp to_integer(value) when is_integer(value), do: value
   defp to_integer(value) when is_binary(value), do: String.to_integer(value)
-  defp normalize_attrs(attrs), do: Map.new(attrs || %{}, fn {key, value} -> {to_string(key), value} end)
+
+  defp normalize_attrs(attrs),
+    do: Map.new(attrs || %{}, fn {key, value} -> {to_string(key), value} end)
+
   defp normalize_opts(opts), do: normalize_attrs(opts)
   defp utc_now, do: DateTime.utc_now() |> DateTime.truncate(:microsecond)
 end
