@@ -13,6 +13,7 @@ defmodule Learnflow.Quizzes.Quiz do
     field(:join_code, :string)
     field(:status, :string, default: "waiting")
     field(:time_limit_seconds, :integer, default: 600)
+    field(:question_time_seconds, :integer, default: 30)
     field(:started_at, :utc_datetime_usec)
     field(:finished_at, :utc_datetime_usec)
     timestamps(type: :utc_datetime_usec)
@@ -27,6 +28,7 @@ defmodule Learnflow.Quizzes.Quiz do
       :join_code,
       :status,
       :time_limit_seconds,
+      :question_time_seconds,
       :started_at,
       :finished_at
     ])
@@ -38,6 +40,10 @@ defmodule Learnflow.Quizzes.Quiz do
     |> validate_number(:time_limit_seconds,
       greater_than_or_equal_to: 30,
       less_than_or_equal_to: 7200
+    )
+    |> validate_number(:question_time_seconds,
+      greater_than_or_equal_to: 10,
+      less_than_or_equal_to: 300
     )
     |> unique_constraint(:join_code)
   end

@@ -3,12 +3,14 @@
   import { onMount } from 'svelte';
   import { fade } from 'svelte/transition';
   import { auth } from '$lib/api';
+  import { registerServiceWorker } from '$lib/browserNotifications';
   import { authStore } from '$lib/stores';
   import Navbar from '$lib/components/Navbar.svelte';
   import Toast from '$lib/components/Toast.svelte';
   import UsernameSetupModal from '$lib/components/UsernameSetupModal.svelte';
 
   onMount(async () => {
+    registerServiceWorker();
     authStore.setLoading(true);
     try {
       const { user } = await auth.me();

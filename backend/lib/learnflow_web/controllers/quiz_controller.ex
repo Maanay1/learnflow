@@ -62,6 +62,7 @@ defmodule LearnflowWeb.QuizController do
       description: quiz.description,
       status: quiz.status,
       time_limit_seconds: quiz.time_limit_seconds,
+      question_time_seconds: quiz.question_time_seconds,
       time_remaining_seconds: Quizzes.time_remaining(quiz),
       started_at: quiz.started_at,
       finished_at: quiz.finished_at,
@@ -85,6 +86,7 @@ defmodule LearnflowWeb.QuizController do
     %{
       id: question.id,
       body: question.body,
+      image_url: question.image_url,
       options: question.options,
       points: question.points,
       position: question.position,
@@ -98,10 +100,36 @@ defmodule LearnflowWeb.QuizController do
       score: participant.score,
       joined_at: participant.joined_at,
       submitted_at: participant.submitted_at,
-      user: participant |> Map.get(:user) |> loaded_user() |> Accounts.public_user()
+      user: participant |> Map.get(:user) |> loaded_user() |> Accounts.public_user(),
+      answers:
+        participant
+        |> Map.get(:answers)
+        |> loaded_many()
+        |> Enum.sort_by(&(&1.question && &1.question.position || 0))
+        |> Enum.map(&answer_json/1)
+    }
+  end
+
+  defp answer_json(answer) do
+    %{
+      id: answer.id,
+      question_id: answer.question_id,
+      selected_option: answer.selected_option,
+      correct: answer.correct,
+      points_awarded: answer.points_awarded,
+      question:
+        answer
+        |> Map.get(:question)
+        |> loaded_question()
+        |> then(fn question -> question && question_json(question, true) end)
     }
   end
 
   defp loaded_user(%Ecto.Association.NotLoaded{}), do: nil
   defp loaded_user(user), do: user
+  defp loaded_question(%Ecto.Association.NotLoaded{}), do: nil
+  defp loaded_question(question), do: question
+  defp loaded_many(%Ecto.Association.NotLoaded{}), do: []
+  defp loaded_many(nil), do: []
+  defp loaded_many(values), do: values
 end

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <defs>
+    <linearGradient id="jarq-mark" x1="20" y1="12" x2="174" y2="184" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#a89fff"/>
+      <stop offset=".55" stop-color="#7f77dd"/>
+      <stop offset="1" stop-color="#5148b8"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="176" height="176" rx="54" fill="url(#jarq-mark)"/>
+  <path d="M62 47h31v65c0 24-14 37-38 37-5 0-10-1-14-2v-25c3 1 6 2 9 2 8 0 12-4 12-13V47Z" fill="#fff"/>
+  <path d="m111 53 42 27a10 10 0 0 1 0 17l-42 27a10 10 0 0 1-15-8V61a10 10 0 0 1 15-8Z" fill="#191821"/>
+  <path d="m124 120 28 28" stroke="#fff" stroke-width="15" stroke-linecap="round"/>
+</svg>

@@ -7,6 +7,7 @@ defmodule Learnflow.Quizzes.Question do
   schema "quiz_questions" do
     belongs_to(:quiz, Learnflow.Quizzes.Quiz)
     field(:body, :string)
+    field(:image_url, :string)
     field(:options, {:array, :string}, default: [])
     field(:correct_option, :integer)
     field(:points, :integer, default: 100)
@@ -16,9 +17,10 @@ defmodule Learnflow.Quizzes.Question do
 
   def changeset(question, attrs) do
     question
-    |> cast(attrs, [:quiz_id, :body, :options, :correct_option, :points, :position])
+    |> cast(attrs, [:quiz_id, :body, :image_url, :options, :correct_option, :points, :position])
     |> validate_required([:quiz_id, :body, :options, :correct_option, :points, :position])
     |> validate_length(:body, min: 2, max: 500)
+    |> validate_length(:image_url, max: 1000)
     |> validate_length(:options, is: 4)
     |> validate_change(:options, fn :options, options ->
       if Enum.all?(options, &(is_binary(&1) and String.trim(&1) != "")),

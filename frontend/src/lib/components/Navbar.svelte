@@ -3,7 +3,7 @@
   import { onMount } from 'svelte';
   import { authStore } from '$lib/stores';
   import { messaging } from '$lib/api';
-  import { Bell, BookOpen, Clapperboard, ClipboardCheck, Flame, LayoutDashboard, MessagesSquare, MoreHorizontal, Plus, Search, Settings, User } from 'lucide-svelte';
+  import { Bell, BookOpen, Clapperboard, ClipboardCheck, Flame, LayoutDashboard, MessagesSquare, Plus, Search, Settings, User } from 'lucide-svelte';
   import Avatar from './Avatar.svelte';
   import JarqLogo from './JarqLogo.svelte';
 
@@ -33,15 +33,13 @@
     { href: '/upload', label: 'Загрузить', icon: Plus, upload: true },
     { href: '/tests', label: 'Тесты', icon: ClipboardCheck },
     { href: '/messages', label: 'Чаты', icon: MessagesSquare, badge: unreadMessages },
-    { href: '/more', label: 'Ещё', icon: MoreHorizontal, more: true }
+    { href: username ? `/profile/${username}` : '/login', label: 'Профиль', icon: User, profile: true }
   ];
 
   function active(item) {
     return item.profile
       ? path.startsWith('/profile')
-      : item.more
-        ? ['/more', '/settings', '/dashboard', '/notifications'].some((href) => path === href || path.startsWith(`${href}/`))
-        : path === item.href || path.startsWith(`${item.href}/`);
+      : path === item.href || path.startsWith(`${item.href}/`);
   }
 
   async function loadUnread() {

@@ -3,6 +3,7 @@
   import { onDestroy, onMount } from 'svelte';
   import { Bell } from 'lucide-svelte';
   import { notifications } from '$lib/api';
+  import { ensureNotificationPermission, showBrowserNotification } from '$lib/browserNotifications';
   import { connectNotifications } from '$lib/socket';
   import { toastStore } from '$lib/stores';
   import Avatar from './Avatar.svelte';
@@ -22,6 +23,7 @@
       items = [notification, ...items].slice(0, 20);
       unread += 1;
       if (important.has(notification.type)) toastStore.addToast(notification.text, 'info');
+      showBrowserNotification('JARQ', { body: notification.text, data: { url: notification.video?.slug ? `/video/${notification.video.slug}` : notification.actor?.username ? `/profile/${notification.actor.username}` : '/notifications' } });
     });
   });
 
@@ -38,6 +40,10 @@
     await notifications.markAllRead();
     unread = 0;
     items = items.map((item) => ({ ...item, read_at: item.read_at || new Date().toISOString() }));
+  }
+  async function toggleOpen() {
+    open = !open;
+    if (open) await ensureNotificationPermission();
   }
 
   async function openNotification(item) {
@@ -64,7 +70,7 @@
 </script>
 
 <div class="relative">
-  <button class="relative rounded-xl p-2 text-[#a3a3a3] hover:bg-[#1a1a1a]" aria-label="Notifications" on:click={() => (open = !open)}>
+  <button class="relative rounded-xl p-2 text-[#a3a3a3] hover:bg-[#1a1a1a]" aria-label="Notifications" on:click={toggleOpen}>
     <Bell size={20} />
     {#if unread > 0}
       <span class="absolute -right-1 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full bg-[#ef4444] px-1 text-[10px] font-black text-white">{unread > 9 ? '9+' : unread}</span>

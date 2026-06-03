@@ -2,8 +2,9 @@
   import { onDestroy, onMount } from 'svelte';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
-  import { ArrowLeft, Search, Send, UserPlus, UsersRound } from 'lucide-svelte';
+  import { ArrowLeft, Info, Search, Send, UserPlus, UsersRound } from 'lucide-svelte';
   import { messaging, search, videos } from '$lib/api';
+  import { showBrowserNotification } from '$lib/browserNotifications';
   import { connectConversation } from '$lib/socket';
   import { authStore } from '$lib/stores';
   import Avatar from '$lib/components/Avatar.svelte';
@@ -11,7 +12,7 @@
 
   let conversations = [], messagesByConversation = {}, activeId = '', query = '', draft = '', channel;
   let loading = true, pendingSharedVideo, error = '', typingName = '', typingTimer, sendTypingTimer, mobile = false;
-  let onlineIds = new Set(), findOpen = false, groupOpen = false, userQuery = '', userResults = [], groupName = '', selected = [], searchTimer;
+  let onlineIds = new Set(), findOpen = false, groupOpen = false, profileOpen = false, addMemberOpen = false, userQuery = '', userResults = [], groupName = '', selected = [], searchTimer;
   $: currentUser = $authStore.user;
   $: activeConversation = conversations.find((item) => item.id === activeId);
   $: activeMessages = messagesByConversation[activeId] || [];
@@ -64,7 +65,10 @@
       onMessage(message) {
         const list = messagesByConversation[id] || [];
         if (!list.some((item) => item.id === message.id)) messagesByConversation = { ...messagesByConversation, [id]: [...list, message] };
-        if (message.sender_id !== currentUser?.id) channel?.read?.();
+        if (message.sender_id !== currentUser?.id) {
+          showBrowserNotification(message.sender?.display_name || message.sender?.username || 'JARQ', { body: message.body || 'Новое сообщение', data: { url: `/messages?conversation_id=${id}` } });
+          channel?.read?.();
+        }
       }
     }, currentUser?.socket_token);
   }
@@ -108,12 +112,23 @@
     groupOpen = false; groupName = ''; selected = []; userQuery = ''; userResults = [];
     await openConversation(conversation.id);
   }
+  async function addToActiveGroup(user) {
+    if (!activeConversation || activeConversation.type !== 'group') return;
+    await messaging.addMember(activeConversation.id, user.id);
+    const fresh = (await messaging.conversations()).conversations || [];
+    conversations = fresh;
+    const updated = fresh.find((item) => item.id === activeConversation.id);
+    if (updated) activeId = updated.id;
+    addMemberOpen = false; userQuery = ''; userResults = [];
+  }
   function conversationUser(conversation) {
     if (!conversation) return {};
     if (conversation.type === 'group') return { display_name: conversation.name, avatar_key: conversation.avatar_key };
     return conversation.members?.find((member) => member.user_id !== currentUser?.id)?.user || { display_name: conversation.name };
   }
   function isOnline(conversation) { return conversation?.members?.some((member) => member.user_id !== currentUser?.id && onlineIds.has(member.user_id)); }
+  function isAdmin(conversation) { return conversation?.members?.some((member) => member.user_id === currentUser?.id && member.role === 'admin'); }
+  function memberCount(conversation) { return conversation?.members?.length || 0; }
   function wasRead(message) { return activeConversation?.members?.some((member) => member.user_id !== currentUser?.id && member.last_read_at && new Date(member.last_read_at) >= new Date(message.inserted_at)); }
   const time = (value) => value ? new Intl.DateTimeFormat('ru', { hour: '2-digit', minute: '2-digit' }).format(new Date(value)) : '';
 </script>
@@ -129,7 +144,14 @@
   </aside>
   <main>
     {#if activeConversation}
-      <header><button class="back" aria-label="Назад к чатам" on:click={closeConversation}><ArrowLeft size={22}/></button><span class="avatar-wrap"><Avatar user={conversationUser(activeConversation)} size={42}/>{#if isOnline(activeConversation)}<i></i>{/if}</span><span><strong>{activeConversation.name}</strong>{#if typingName}<small>{typingName} печатает...</small>{:else if isOnline(activeConversation)}<small>онлайн</small>{/if}</span></header>
+      <header>
+        <button class="back" aria-label="Назад к чатам" on:click={closeConversation}><ArrowLeft size={22}/></button>
+        <button class="chat-person" on:click={() => (profileOpen = true)}>
+          <span class="avatar-wrap"><Avatar user={conversationUser(activeConversation)} size={42}/>{#if isOnline(activeConversation)}<i></i>{/if}</span>
+          <span><strong>{activeConversation.name}</strong>{#if typingName}<small>{typingName} печатает...</small>{:else if activeConversation.type === 'group'}<small>{memberCount(activeConversation)} участников</small>{:else if isOnline(activeConversation)}<small>онлайн</small>{/if}</span>
+        </button>
+        <button class="info" aria-label="Информация" on:click={() => (profileOpen = true)}><Info size={20}/></button>
+      </header>
       <div class="list">{#if activeMessages.length}{#each activeMessages as message}<article class:own={message.sender_id === currentUser?.id}>{#if message.sender_id !== currentUser?.id}<Avatar user={message.sender} size={30}/>{/if}<div>{#if message.shared_video}<a class="shared" href={`/video/${message.shared_video.slug}`}>{message.shared_video.title}</a>{/if}{#if message.body}<p>{message.body}</p>{/if}<small>{time(message.inserted_at)} {#if message.sender_id === currentUser?.id}<b>{wasRead(message) ? '✓✓' : '✓'}</b>{/if}</small></div></article>{/each}{:else}<p class="empty">Нет сообщений</p>{/if}</div>
       {#if pendingSharedVideo}<div class="pending">Видео: {pendingSharedVideo.title}<button on:click={() => (pendingSharedVideo = null)}>Убрать</button></div>{/if}
       {#if error}<p class="error">{error}</p>{/if}
@@ -144,10 +166,43 @@
 <Modal open={groupOpen} title="Создать группу" onClose={() => (groupOpen = false)}>
   <input class="group-name" bind:value={groupName} maxlength="100" placeholder="Название группы" />
   <label class="search"><Search size={18}/><input bind:value={userQuery} placeholder="Добавить участников" /></label>
+  <p class="member-count">Выбрано: {selected.length}</p>
   <div class="selected">{#each selected as user}<button on:click={() => toggleSelected(user)}>@{user.username} ×</button>{/each}</div>
   <div class="users">{#each userResults as user}<button class:selected-user={selected.some((item) => item.id === user.id)} on:click={() => toggleSelected(user)}><Avatar {user} size={38}/><span><strong>{user.display_name || user.username}</strong><small>@{user.username}</small></span></button>{/each}</div>
   <button class="create" disabled={!groupName.trim() || !selected.length} on:click={createGroup}>Создать группу</button>
 </Modal>
+<Modal open={profileOpen} title={activeConversation?.type === 'group' ? 'Профиль группы' : 'Профиль контакта'} onClose={() => (profileOpen = false)}>
+  {#if activeConversation}
+    <div class="chat-profile">
+      <Avatar user={conversationUser(activeConversation)} size={74}/>
+      <h2>{activeConversation.name}</h2>
+      {#if activeConversation.type === 'group'}
+        <p>{memberCount(activeConversation)} участников{activeConversation.max_members ? ` из ${activeConversation.max_members}` : ''}</p>
+        {#if activeConversation.description}<small>{activeConversation.description}</small>{/if}
+        {#if isAdmin(activeConversation)}<button class="create" on:click={() => (addMemberOpen = true)}>Добавить людей</button>{/if}
+        <div class="members">
+          {#each activeConversation.members as member}
+            <a href={`/profile/${member.user?.username}`} on:click={() => (profileOpen = false)}>
+              <Avatar user={member.user} size={38}/>
+              <span><strong>{member.user?.display_name || member.user?.username}</strong><small>@{member.user?.username} · {member.role === 'admin' ? 'админ' : 'участник'}</small></span>
+            </a>
+          {/each}
+        </div>
+      {:else}
+        {#if conversationUser(activeConversation).username}<p>@{conversationUser(activeConversation).username}</p>{/if}
+        <a class="create profile-link" href={`/profile/${conversationUser(activeConversation).username}`} on:click={() => (profileOpen = false)}>Открыть профиль</a>
+      {/if}
+    </div>
+  {/if}
+</Modal>
+<Modal open={addMemberOpen} title="Добавить людей" onClose={() => (addMemberOpen = false)}>
+  <label class="search"><Search size={18}/><input bind:value={userQuery} placeholder="Username или имя" /></label>
+  <div class="users">
+    {#each userResults.filter((user) => !activeConversation?.members?.some((member) => member.user_id === user.id)) as user}
+      <button on:click={() => addToActiveGroup(user)}><Avatar {user} size={38}/><span><strong>{user.display_name || user.username}</strong><small>@{user.username}</small></span></button>
+    {/each}
+  </div>
+</Modal>
 <style>
-  :global(main.main){padding-left:0}.page{display:grid;height:100vh;grid-template-columns:320px minmax(0,1fr);background:var(--bg)}aside{overflow:auto;border-right:1px solid var(--border);background:#121214;padding:16px}.aside-head{display:flex;align-items:center;gap:8px;margin-bottom:14px}.aside-head h1{margin-right:auto;font-size:26px;font-weight:900}.aside-head button{color:#a78bfa}.search,form{display:flex;align-items:center;gap:9px;border:1px solid var(--border);border-radius:999px;background:var(--surface);padding:0 13px;color:var(--text-3)}.search{height:44px;margin-bottom:12px}.search input,form input{min-width:0;flex:1;background:transparent;color:white;outline:0}.conversation{display:grid;width:100%;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;border-radius:12px;padding:10px;text-align:left}.conversation.active,.conversation:hover{background:var(--primary-soft)}.conversation>span:not(.avatar-wrap),header>span{display:grid;gap:3px;min-width:0}.conversation small,header small{overflow:hidden;color:var(--text-2);text-overflow:ellipsis;white-space:nowrap}.conversation>b{display:grid;width:22px;height:22px;place-items:center;border-radius:99px;background:var(--primary);font-size:11px}.avatar-wrap{position:relative;display:inline-flex}.avatar-wrap i{position:absolute;right:0;bottom:1px;width:11px;height:11px;border:2px solid var(--surface);border-radius:50%;background:#22c55e}main{display:grid;min-width:0;grid-template-rows:auto minmax(0,1fr) auto auto auto;background:var(--bg)}header{display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);background:var(--surface);padding:14px 18px}.back{display:none;color:var(--text-2)}.list{display:flex;overflow:auto;flex-direction:column;gap:10px;padding:18px}article{display:flex;max-width:70%;gap:8px;align-items:end}article.own{align-self:end}article>div{border-radius:16px 16px 16px 4px;background:var(--surface-2);padding:10px 12px}.own>div{border-radius:16px 16px 4px 16px;background:var(--primary)}article small{display:block;margin-top:4px;color:#d4d4d4;font-size:11px;text-align:right}article small b{color:#e0ddff}.shared{display:block;margin-bottom:5px;color:#ddd6fe;font-weight:800}.pending,.error{padding:8px 18px;color:var(--text-2)}.pending button,.link{margin-left:10px;color:#a78bfa}.error{color:#f87171}form{height:48px;margin:12px 18px}form button{color:#a78bfa}.empty{padding:30px 6px;color:var(--text-2);text-align:center}.center{place-self:center}.users{display:grid;max-height:300px;gap:5px;overflow:auto}.users button{display:flex;align-items:center;gap:10px;border-radius:10px;padding:8px;text-align:left}.users button:hover,.selected-user{background:#27272a}.users span{display:grid}.users small{color:#a3a3a3}.group-name{width:100%;margin-bottom:10px;border:1px solid #333;border-radius:10px;background:#111;padding:11px;color:white}.selected{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}.selected button{border-radius:99px;background:#312e81;padding:5px 9px;font-size:12px}.create{width:100%;margin-top:12px;border-radius:10px;background:var(--accent);padding:11px;font-weight:800}.create:disabled{opacity:.4}@media(max-width:700px){:global(main.main){min-height:0}.page{height:calc(100dvh - 73px);grid-template-columns:1fr}aside{border-right:0;padding:15px 14px}.aside-head h1{font-size:24px}.conversation{padding:11px 8px}.conversation>span:not(.avatar-wrap),.conversation>b{display:grid}main{display:none}.chat-open aside{display:none}.chat-open main{display:grid}.back{display:grid;place-items:center}.list{padding:14px 12px}article{max-width:86%}form{height:50px;margin:8px 10px 12px;background:var(--surface-2)}header{padding:11px 12px}.center{display:none}}
+  :global(main.main){padding-left:0}.page{display:grid;height:100vh;grid-template-columns:320px minmax(0,1fr);background:var(--bg)}aside{overflow:auto;border-right:1px solid var(--border);background:#121214;padding:16px}.aside-head{display:flex;align-items:center;gap:8px;margin-bottom:14px}.aside-head h1{margin-right:auto;font-size:26px;font-weight:900}.aside-head button{color:#a78bfa}.search,form{display:flex;align-items:center;gap:9px;border:1px solid var(--border);border-radius:999px;background:var(--surface);padding:0 13px;color:var(--text-3)}.search{height:44px;margin-bottom:12px}.search input,form input{min-width:0;flex:1;background:transparent;color:white;outline:0}.conversation{display:grid;width:100%;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;border-radius:12px;padding:10px;text-align:left}.conversation.active,.conversation:hover{background:var(--primary-soft)}.conversation>span:not(.avatar-wrap),.chat-person>span:last-child{display:grid;gap:3px;min-width:0}.conversation small,header small{overflow:hidden;color:var(--text-2);text-overflow:ellipsis;white-space:nowrap}.conversation>b{display:grid;width:22px;height:22px;place-items:center;border-radius:99px;background:var(--primary);font-size:11px}.avatar-wrap{position:relative;display:inline-flex}.avatar-wrap i{position:absolute;right:0;bottom:1px;width:11px;height:11px;border:2px solid var(--surface);border-radius:50%;background:#22c55e}main{display:grid;min-width:0;grid-template-rows:auto minmax(0,1fr) auto auto auto;background:var(--bg)}header{display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);background:var(--surface);padding:14px 18px}.chat-person{display:flex;min-width:0;flex:1;align-items:center;gap:10px;text-align:left}.info{display:grid;width:38px;height:38px;place-items:center;border-radius:50%;color:#a78bfa}.info:hover{background:var(--primary-soft)}.back{display:none;color:var(--text-2)}.list{display:flex;overflow:auto;flex-direction:column;gap:10px;padding:18px}article{display:flex;max-width:70%;gap:8px;align-items:end}article.own{align-self:end}article>div{border-radius:16px 16px 16px 4px;background:var(--surface-2);padding:10px 12px}.own>div{border-radius:16px 16px 4px 16px;background:var(--primary)}article small{display:block;margin-top:4px;color:#d4d4d4;font-size:11px;text-align:right}article small b{color:#e0ddff}.shared{display:block;margin-bottom:5px;color:#ddd6fe;font-weight:800}.pending,.error{padding:8px 18px;color:var(--text-2)}.pending button,.link{margin-left:10px;color:#a78bfa}.error{color:#f87171}form{height:48px;margin:12px 18px}form button{color:#a78bfa}.empty{padding:30px 6px;color:var(--text-2);text-align:center}.center{place-self:center}.users{display:grid;max-height:300px;gap:5px;overflow:auto}.users button,.members a{display:flex;align-items:center;gap:10px;border-radius:10px;padding:8px;text-align:left}.users button:hover,.members a:hover,.selected-user{background:#27272a}.users span,.members span{display:grid}.users small,.members small{color:#a3a3a3}.group-name{width:100%;margin-bottom:10px;border:1px solid #333;border-radius:10px;background:#111;padding:11px;color:white}.member-count{margin:-3px 0 8px;color:var(--text-2);font-size:12px}.selected{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}.selected button{border-radius:99px;background:#312e81;padding:5px 9px;font-size:12px}.create{width:100%;margin-top:12px;border-radius:10px;background:var(--accent);padding:11px;font-weight:800;text-align:center}.create:disabled{opacity:.4}.chat-profile{display:grid;justify-items:center;gap:8px;text-align:center}.chat-profile h2{font-size:22px}.chat-profile p,.chat-profile small{color:var(--text-2)}.members{display:grid;width:100%;max-height:260px;overflow:auto;gap:4px;margin-top:8px;text-align:left}.profile-link{display:block}@media(max-width:700px){:global(main.main){min-height:0}.page{height:calc(100dvh - 73px);grid-template-columns:1fr}aside{border-right:0;padding:15px 14px}.aside-head h1{font-size:24px}.conversation{padding:11px 8px}.conversation>span:not(.avatar-wrap),.conversation>b{display:grid}main{display:none}.chat-open aside{display:none}.chat-open main{display:grid}.back{display:grid;place-items:center}.list{padding:14px 12px}article{max-width:86%}form{height:50px;margin:8px 10px 12px;background:var(--surface-2)}header{padding:11px 12px}.center{display:none}}
 </style>

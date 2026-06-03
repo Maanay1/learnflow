@@ -23,7 +23,7 @@ defmodule Learnflow.Quizzes.Answer do
       :correct,
       :points_awarded
     ])
-    |> validate_number(:selected_option, greater_than_or_equal_to: 0, less_than_or_equal_to: 3)
+    |> validate_number(:selected_option, greater_than_or_equal_to: -1, less_than_or_equal_to: 3)
     |> validate_number(:points_awarded, greater_than_or_equal_to: 0)
     |> unique_constraint([:participant_id, :question_id])
   end

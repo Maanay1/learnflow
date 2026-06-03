@@ -13,7 +13,7 @@ defmodule Learnflow.Quizzes do
     if is_list(questions) and questions != [] do
       quiz_attrs =
         attrs
-        |> Map.take(["title", "description", "time_limit_seconds"])
+        |> Map.take(["title", "description", "time_limit_seconds", "question_time_seconds"])
         |> Map.put("creator_id", creator.id)
         |> Map.put("join_code", unique_join_code())
 
@@ -137,7 +137,7 @@ defmodule Learnflow.Quizzes do
       )
       |> Repo.transaction()
       |> case do
-        {:ok, %{participant: updated}} -> {:ok, Repo.preload(updated, :user)}
+        {:ok, %{participant: updated}} -> {:ok, Repo.preload(updated, [:user, answers: :question])}
         {:error, _step, reason, _changes} -> {:error, reason}
       end
     else
@@ -195,7 +195,7 @@ defmodule Learnflow.Quizzes do
       question = Map.get(questions_by_id, Map.get(attrs, "question_id"))
       selected = to_integer(Map.get(attrs, "selected_option"))
 
-      if question && selected in 0..3 do
+      if question && selected in -1..3 do
         correct = selected == question.correct_option
 
         answer = %{
@@ -272,7 +272,7 @@ defmodule Learnflow.Quizzes do
   defp get_quiz!(id), do: Repo.get!(Quiz, id) |> preload_quiz() |> refresh_status()
 
   defp preload_quiz(nil), do: nil
-  defp preload_quiz(quiz), do: Repo.preload(quiz, [:creator, :questions, participants: :user])
+  defp preload_quiz(quiz), do: Repo.preload(quiz, [:creator, :questions, participants: [:user, answers: :question]])
 
   defp refresh_if_present(nil), do: nil
   defp refresh_if_present(quiz), do: refresh_status(quiz)
