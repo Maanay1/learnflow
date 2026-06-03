@@ -3,7 +3,7 @@
   import { onMount } from 'svelte';
   import { authStore } from '$lib/stores';
   import { messaging } from '$lib/api';
-  import { Bell, BookOpen, Clapperboard, ClipboardCheck, Flame, LayoutDashboard, MessagesSquare, Plus, Search, Settings, User } from 'lucide-svelte';
+  import { Bell, BookOpen, Clapperboard, LayoutDashboard, MessagesSquare, Plus, Search, Settings, User } from 'lucide-svelte';
   import Avatar from './Avatar.svelte';
   import JarqLogo from './JarqLogo.svelte';
 
@@ -14,10 +14,8 @@
   $: path = $page.url.pathname;
 
   $: desktopItems = [
-    { href: '/jq', label: 'JQ', icon: Flame },
     { href: '/feed', label: 'Медиа', icon: Clapperboard },
     { href: '/search', label: 'Поиск', icon: Search },
-    { href: '/tests', label: 'Тесты', icon: ClipboardCheck },
     { href: '/dashboard', label: 'Обзор', icon: LayoutDashboard },
     { divider: true },
     { href: '/messages', label: 'Чаты', icon: MessagesSquare, badge: unreadMessages },
@@ -28,10 +26,9 @@
   ];
 
   $: mobileItems = [
-    { href: '/jq', label: 'JQ', icon: Flame },
     { href: '/feed', label: 'Медиа', icon: Clapperboard },
+    { href: '/search', label: 'Поиск', icon: Search },
     { href: '/upload', label: 'Загрузить', icon: Plus, upload: true },
-    { href: '/tests', label: 'Тесты', icon: ClipboardCheck },
     { href: '/messages', label: 'Чаты', icon: MessagesSquare, badge: unreadMessages },
     { href: username ? `/profile/${username}` : '/login', label: 'Профиль', icon: User, profile: true }
   ];
@@ -39,6 +36,8 @@
   function active(item) {
     return item.profile
       ? path.startsWith('/profile')
+      : item.href === '/feed'
+        ? path.startsWith('/feed') || path.startsWith('/jq')
       : path === item.href || path.startsWith(`${item.href}/`);
   }
 
@@ -91,5 +90,5 @@
 </nav>
 
 <style>
-  .sidebar{position:fixed;inset:0 auto 0 0;z-index:50;display:none;width:248px;flex-direction:column;border-right:1px solid var(--border);background:#171719;padding:28px 16px 18px}.logo{margin:0 10px 27px}.desktop-nav{display:grid;gap:4px}.divider{height:1px;margin:12px 8px;background:var(--border)}.nav-item{display:flex;align-items:center;gap:13px;border-radius:9px;padding:12px 14px;color:var(--text-2);font-size:15px;font-weight:700;transition:150ms ease}.nav-item:hover{background:rgba(255,255,255,.05);color:var(--text)}.nav-item.active{background:var(--primary-soft);color:#a9a2ff}.nav-badge,.mobile-badge{display:grid;min-width:19px;height:19px;place-items:center;border-radius:999px;background:var(--primary);color:#fff;font-size:10px;font-weight:900}.nav-badge{margin-left:auto}.user-card{display:flex;align-items:center;gap:10px;margin-top:auto;border-top:1px solid var(--border);padding:17px 5px 0;color:var(--text)}.user-card span{display:grid;min-width:0;flex:1;line-height:1.25}.user-card strong,.user-card small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.user-card strong{font-size:14px}.user-card small{color:var(--text-3);font-size:12px}.mobile-nav{position:fixed;right:0;bottom:0;left:0;z-index:60;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));border-top:1px solid var(--border);background:rgba(18,18,20,.94);padding:7px 5px max(7px,env(safe-area-inset-bottom));backdrop-filter:blur(22px)}.mobile-nav a{position:relative;display:grid;min-height:52px;place-items:center;align-content:center;gap:3px;color:var(--text-3);font-size:10px;font-weight:700;transition:150ms ease}.mobile-nav a.active{color:#a59cff}.mobile-nav a.upload{width:58px;height:58px;min-height:58px;align-self:center;justify-self:center;border-radius:19px;background:var(--primary);color:#fff;transform:translateY(-11px);box-shadow:0 8px 18px rgba(127,119,221,.28)}.mobile-nav a.upload:active{transform:translateY(-11px) scale(.94)}.mobile-badge{position:absolute;top:1px;right:18%;padding:0 4px}@media(min-width:768px){.sidebar{display:flex}.mobile-nav{display:none}}
+  .sidebar{position:fixed;inset:0 auto 0 0;z-index:50;display:none;width:248px;flex-direction:column;border-right:1px solid var(--border);background:#171719;padding:28px 16px 18px}.logo{margin:0 10px 27px}.desktop-nav{display:grid;gap:4px}.divider{height:1px;margin:12px 8px;background:var(--border)}.nav-item{display:flex;align-items:center;gap:13px;border-radius:9px;padding:12px 14px;color:var(--text-2);font-size:15px;font-weight:700;transition:150ms ease}.nav-item:hover{background:rgba(255,255,255,.05);color:var(--text)}.nav-item.active{background:var(--primary-soft);color:#a9a2ff}.nav-badge,.mobile-badge{display:grid;min-width:19px;height:19px;place-items:center;border-radius:999px;background:var(--primary);color:#fff;font-size:10px;font-weight:900}.nav-badge{margin-left:auto}.user-card{display:flex;align-items:center;gap:10px;margin-top:auto;border-top:1px solid var(--border);padding:17px 5px 0;color:var(--text)}.user-card span{display:grid;min-width:0;flex:1;line-height:1.25}.user-card strong,.user-card small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.user-card strong{font-size:14px}.user-card small{color:var(--text-3);font-size:12px}.mobile-nav{position:fixed;right:0;bottom:0;left:0;z-index:60;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border-top:1px solid var(--border);background:rgba(18,18,20,.94);padding:7px 5px max(7px,env(safe-area-inset-bottom));backdrop-filter:blur(22px)}.mobile-nav a{position:relative;display:grid;min-height:52px;place-items:center;align-content:center;gap:3px;color:var(--text-3);font-size:10px;font-weight:700;transition:150ms ease}.mobile-nav a.active{color:#a59cff}.mobile-nav a.upload{width:58px;height:58px;min-height:58px;align-self:center;justify-self:center;border-radius:19px;background:var(--primary);color:#fff;transform:translateY(-11px);box-shadow:0 8px 18px rgba(127,119,221,.28)}.mobile-nav a.upload:active{transform:translateY(-11px) scale(.94)}.mobile-badge{position:absolute;top:1px;right:18%;padding:0 4px}@media(min-width:768px){.sidebar{display:flex}.mobile-nav{display:none}}
 </style>

@@ -144,6 +144,7 @@ export const certificates = {
 export const quizzes = {
   list: () => get('/api/quizzes'),
   create: (body) => post('/api/quizzes', body),
+  uploadImage: (file) => { const form = new FormData(); form.append('image', file); return upload('/api/quizzes/images', form); },
   join: (code) => post('/api/quizzes/join', { code }),
   detail: (id) => get(`/api/quizzes/${id}`),
   start: (id) => post(`/api/quizzes/${id}/start`),

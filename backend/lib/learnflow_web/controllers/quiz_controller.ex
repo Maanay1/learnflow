@@ -2,6 +2,14 @@ defmodule LearnflowWeb.QuizController do
   use LearnflowWeb, :controller
   alias Learnflow.Accounts
   alias Learnflow.Quizzes
+  alias Learnflow.Storage
+
+  @quiz_image_types %{
+    "image/jpeg" => ".jpg",
+    "image/png" => ".png",
+    "image/webp" => ".webp"
+  }
+  @max_quiz_image_bytes 8 * 1024 * 1024
 
   def index(conn, _params) do
     quizzes = Quizzes.list_created(conn.assigns.current_user.id)
@@ -13,6 +21,36 @@ defmodule LearnflowWeb.QuizController do
       conn
       |> put_status(:created)
       |> json(%{quiz: quiz_json(quiz, conn.assigns.current_user.id)})
+    end
+  end
+
+  def image(conn, %{"image" => %Plug.Upload{} = upload}) do
+    with {:ok, extension} <- image_extension(upload.content_type),
+         {:ok, %{size: size}} when size <= @max_quiz_image_bytes <- File.stat(upload.path),
+         {:ok, body} <- File.read(upload.path),
+         key = "quiz-images/#{conn.assigns.current_user.id}/#{Ecto.UUID.generate()}#{extension}",
+         {:ok, _response} <- Storage.put_object(Storage.bucket_thumbnails(), key, body, upload.content_type) do
+      token = Base.url_encode64(key, padding: false)
+      json(conn, %{image_url: "/api/quizzes/images/#{token}"})
+    else
+      {:ok, %{size: _}} -> conn |> put_status(:unprocessable_entity) |> json(%{error: "image_too_large"})
+      {:error, :invalid_image_type} -> conn |> put_status(:unprocessable_entity) |> json(%{error: "invalid_image_type"})
+      {:error, reason} -> conn |> put_status(:unprocessable_entity) |> json(%{error: inspect(reason)})
+    end
+  end
+
+  def image(conn, _params), do: conn |> put_status(:unprocessable_entity) |> json(%{error: "image_required"})
+
+  def image_file(conn, %{"token" => token}) do
+    with {:ok, key} <- Base.url_decode64(token, padding: false),
+         true <- String.starts_with?(key, "quiz-images/"),
+         {:ok, body} <- Storage.get_object(Storage.bucket_thumbnails(), key) do
+      conn
+      |> put_resp_content_type(image_content_type(key))
+      |> put_resp_header("cache-control", "public, max-age=86400")
+      |> send_resp(:ok, body)
+    else
+      _ -> {:error, :not_found}
     end
   end
 
@@ -132,4 +170,19 @@ defmodule LearnflowWeb.QuizController do
   defp loaded_many(%Ecto.Association.NotLoaded{}), do: []
   defp loaded_many(nil), do: []
   defp loaded_many(values), do: values
+
+  defp image_extension(content_type) do
+    case Map.fetch(@quiz_image_types, content_type) do
+      {:ok, extension} -> {:ok, extension}
+      :error -> {:error, :invalid_image_type}
+    end
+  end
+
+  defp image_content_type(key) do
+    cond do
+      String.ends_with?(key, ".png") -> "image/png"
+      String.ends_with?(key, ".webp") -> "image/webp"
+      true -> "image/jpeg"
+    end
+  end
 end

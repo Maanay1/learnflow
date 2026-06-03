@@ -1,11 +1,11 @@
 <script>
   import { goto } from '$app/navigation';
-  import { Plus, Trash2 } from 'lucide-svelte';
+  import { ImagePlus, Plus, Trash2 } from 'lucide-svelte';
   import { quizzes } from '$lib/api';
   import { authStore } from '$lib/stores';
 
   const blankQuestion = () => ({ body: '', image_url: '', options: ['', '', '', ''], correct_option: 0, points: 100 });
-  let title = '', description = '', questionSeconds = 30, questions = [blankQuestion()], saving = false, error = '', invalidQuestion = -1;
+  let title = '', description = '', questionSeconds = 30, questions = [blankQuestion()], saving = false, error = '', invalidQuestion = -1, uploadingImage = -1;
   $: if (!$authStore.loading && !$authStore.authenticated) goto('/login');
 
   function addQuestion() {
@@ -21,6 +21,28 @@
     if (!question.body.trim()) return 'добавь текст вопроса';
     const optionIndex = question.options.findIndex((option) => !option.trim());
     return optionIndex === -1 ? '' : `заполни вариант ${String.fromCharCode(65 + optionIndex)}`;
+  }
+
+  async function uploadQuestionImage(index, file) {
+    if (!file) return;
+    uploadingImage = index;
+    error = '';
+    try {
+      const { image_url } = await quizzes.uploadImage(file);
+      questions = questions.map((question, questionIndex) => questionIndex === index ? { ...question, image_url } : question);
+    } catch (requestError) {
+      error = requestError?.data?.error === 'image_too_large'
+        ? 'Фото должно быть меньше 8 МБ'
+        : requestError?.data?.error === 'invalid_image_type'
+          ? 'Можно загрузить только JPG, PNG или WebP'
+          : 'Не удалось загрузить фото';
+    } finally {
+      uploadingImage = -1;
+    }
+  }
+
+  function removeQuestionImage(index) {
+    questions = questions.map((question, questionIndex) => questionIndex === index ? { ...question, image_url: '' } : question);
   }
 
   async function create() {
@@ -61,7 +83,14 @@
     <section id={`question-${index}`} class="card question" class:invalid={invalidQuestion === index}>
       <header><strong>Вопрос {index + 1}</strong><button class="remove" disabled={questions.length === 1} on:click={() => removeQuestion(index)} aria-label="Удалить вопрос"><Trash2 size={17}/></button></header>
       <textarea class="input" bind:value={question.body} maxlength="500" placeholder="Введите вопрос"></textarea>
-      <input class="input" bind:value={question.image_url} maxlength="1000" placeholder="Ссылка на фото или материал (необязательно)" />
+      <div class="photo-row">
+        <label class="photo-button">
+          <ImagePlus size={18}/>
+          {uploadingImage === index ? 'Загружаем фото...' : question.image_url ? 'Заменить фото' : 'Загрузить фото'}
+          <input type="file" accept="image/jpeg,image/png,image/webp" disabled={uploadingImage === index} on:change={(event) => uploadQuestionImage(index, event.currentTarget.files?.[0])}/>
+        </label>
+        {#if question.image_url}<button class="clear-photo" on:click={() => removeQuestionImage(index)}>Убрать</button>{/if}
+      </div>
       {#if question.image_url}<img class="preview" src={question.image_url} alt="Превью вопроса" />{/if}
       <div class="options">
         {#each question.options as option, optionIndex}
@@ -80,5 +109,5 @@
 </section>
 
 <style>
-  .eyebrow{color:#a89fff;font-size:11px;font-weight:900;letter-spacing:1.6px}h1{margin-top:4px;font-size:34px;font-weight:950}header p{max-width:700px;margin-top:7px;color:var(--text-2)}.setup{display:grid;gap:13px;margin-top:22px;padding:18px}label{display:grid;gap:6px;color:var(--text-2);font-size:13px;font-weight:800}textarea{min-height:80px;resize:vertical}.questions-head{display:flex;align-items:center;justify-content:space-between;margin:24px 0 12px}.questions-head h2{font-size:23px}.questions-head button{display:flex;align-items:center;gap:4px;color:#a89fff;font-weight:800}.question{display:grid;gap:13px;margin-bottom:12px;padding:17px}.question.invalid{border-color:#f87171;box-shadow:0 0 0 1px #f8717144}.question header{display:flex;align-items:center;justify-content:space-between}.preview{width:100%;max-height:260px;object-fit:cover;border:1px solid var(--border);border-radius:12px;background:#111}.remove{color:#f87171}.remove:disabled{opacity:.25}.options{display:grid;grid-template-columns:1fr 1fr;gap:9px}.options label{display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:12px;background:#121214;padding:8px}.options label.correct{border-color:#7f77dd;background:var(--primary-soft)}.options label>input:first-child{display:none}.options span{display:grid;width:28px;height:28px;flex:none;place-items:center;border-radius:9px;background:#27272c;color:#d8d5ff}.options label>input:last-child{min-width:0;flex:1;background:transparent;color:white;outline:0}.points{max-width:210px}.error{margin:10px 0;color:#f87171}.save{width:100%;border-radius:13px;background:var(--primary);padding:14px;font-weight:900}@media(max-width:580px){h1{font-size:29px}.options{grid-template-columns:1fr}.question{padding:14px}}
+  .eyebrow{color:#a89fff;font-size:11px;font-weight:900;letter-spacing:1.6px}h1{margin-top:4px;font-size:34px;font-weight:950}header p{max-width:700px;margin-top:7px;color:var(--text-2)}.setup{display:grid;gap:13px;margin-top:22px;padding:18px}label{display:grid;gap:6px;color:var(--text-2);font-size:13px;font-weight:800}textarea{min-height:80px;resize:vertical}.questions-head{display:flex;align-items:center;justify-content:space-between;margin:24px 0 12px}.questions-head h2{font-size:23px}.questions-head button{display:flex;align-items:center;gap:4px;color:#a89fff;font-weight:800}.question{display:grid;gap:13px;margin-bottom:12px;padding:17px}.question.invalid{border-color:#f87171;box-shadow:0 0 0 1px #f8717144}.question header{display:flex;align-items:center;justify-content:space-between}.photo-row{display:flex;flex-wrap:wrap;align-items:center;gap:9px}.photo-button{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border);border-radius:999px;background:#121214;padding:10px 14px;color:#d8d5ff;font-size:13px;font-weight:900}.photo-button input{display:none}.clear-photo{border-radius:999px;background:#2a171a;padding:9px 12px;color:#fca5a5;font-size:13px;font-weight:800}.preview{width:100%;max-height:260px;object-fit:cover;border:1px solid var(--border);border-radius:12px;background:#111}.remove{color:#f87171}.remove:disabled{opacity:.25}.options{display:grid;grid-template-columns:1fr 1fr;gap:9px}.options label{display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:12px;background:#121214;padding:8px}.options label.correct{border-color:#7f77dd;background:var(--primary-soft)}.options label>input:first-child{display:none}.options span{display:grid;width:28px;height:28px;flex:none;place-items:center;border-radius:9px;background:#27272c;color:#d8d5ff}.options label>input:last-child{min-width:0;flex:1;background:transparent;color:white;outline:0}.points{max-width:210px}.error{margin:10px 0;color:#f87171}.save{width:100%;border-radius:13px;background:var(--primary);padding:14px;font-weight:900}@media(max-width:580px){h1{font-size:29px}.options{grid-template-columns:1fr}.question{padding:14px}}
 </style>
