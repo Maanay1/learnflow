@@ -1,6 +1,6 @@
 defmodule LearnflowWeb.UserController do
   use LearnflowWeb, :controller
-  alias Learnflow.{Accounts, Dashboard, Storage}
+  alias Learnflow.{Accounts, Analytics, Dashboard, Storage}
   alias LearnflowWeb.VideoJSON
 
   @avatar_types %{
@@ -12,8 +12,12 @@ defmodule LearnflowWeb.UserController do
 
   def show(conn, %{"username" => username}) do
     case Dashboard.public_profile(username, viewer_id(conn)) do
-      nil -> {:error, :not_found}
-      profile -> json(conn, %{user: profile})
+      nil ->
+        {:error, :not_found}
+
+      profile ->
+        track_profile_view(conn, profile)
+        json(conn, %{user: profile})
     end
   end
 
@@ -98,6 +102,19 @@ defmodule LearnflowWeb.UserController do
         user.id
     end
   end
+
+  defp track_profile_view(conn, profile) do
+    Analytics.track("profile_view", %{
+      actor_id: viewer_id(conn),
+      target_user_id: profile.id,
+      metadata: %{username: profile.username},
+      ip_address: client_ip(conn),
+      user_agent: user_agent(conn)
+    })
+  end
+
+  defp client_ip(conn), do: conn.remote_ip |> :inet.ntoa() |> to_string()
+  defp user_agent(conn), do: conn |> get_req_header("user-agent") |> List.first()
 
   defp avatar_extension(content_type) do
     case Map.fetch(@avatar_types, content_type) do

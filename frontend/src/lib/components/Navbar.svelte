@@ -3,7 +3,7 @@
   import { onMount } from 'svelte';
   import { authStore } from '$lib/stores';
   import { messaging } from '$lib/api';
-  import { Bell, BookOpen, Clapperboard, LayoutDashboard, MessagesSquare, Plus, Search, Settings, User } from 'lucide-svelte';
+  import { BarChart3, Bell, BookOpen, Clapperboard, LayoutDashboard, MessagesSquare, PlaySquare, Plus, Search, Settings, User } from 'lucide-svelte';
   import Avatar from './Avatar.svelte';
   import JarqLogo from './JarqLogo.svelte';
 
@@ -12,9 +12,11 @@
 
   $: username = $authStore.user?.username;
   $: path = $page.url.pathname;
+  $: isAdmin = $authStore.user?.is_admin;
 
   $: desktopItems = [
     { href: '/feed', label: 'Медиа', icon: Clapperboard },
+    { href: '/jq', label: 'JQ', icon: PlaySquare },
     { href: '/search', label: 'Поиск', icon: Search },
     { href: '/dashboard', label: 'Обзор', icon: LayoutDashboard },
     { divider: true },
@@ -22,7 +24,8 @@
     { href: '/notifications', label: 'Уведомления', icon: Bell },
     { divider: true },
     { href: username ? `/profile/${username}` : '/login', label: 'Профиль', icon: User, profile: true },
-    { href: '/settings', label: 'Настройки', icon: Settings }
+    { href: '/settings', label: 'Настройки', icon: Settings },
+    ...(isAdmin ? [{ href: '/admin/analytics', label: 'Аналитика', icon: BarChart3 }] : [])
   ];
 
   $: mobileItems = [
@@ -36,8 +39,6 @@
   function active(item) {
     return item.profile
       ? path.startsWith('/profile')
-      : item.href === '/feed'
-        ? path.startsWith('/feed') || path.startsWith('/jq')
       : path === item.href || path.startsWith(`${item.href}/`);
   }
 
@@ -53,7 +54,7 @@
 </script>
 
 <aside class="sidebar desktop-sidebar">
-  <a href="/jq" class="logo"><JarqLogo /></a>
+  <a href="/feed" class="logo"><JarqLogo /></a>
   <nav class="desktop-nav">
     {#each desktopItems as item}
       {#if item.divider}

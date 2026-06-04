@@ -120,6 +120,10 @@ export const dashboard = {
   uploadAvatar: (file) => { const form = new FormData(); form.append('avatar', file); return upload('/api/users/me/avatar', form); }
 };
 
+export const admin = {
+  analytics: () => get('/api/admin/analytics')
+};
+
 export const search = {
   videos: (params = {}) => get(`/api/search?${new URLSearchParams(clean(params))}`),
   users: (q = '') => get(`/api/users/search?${new URLSearchParams(clean({ q }))}`),

@@ -1,14 +1,18 @@
 <script>
-  import { Bell, LayoutDashboard, Search, Settings, User } from 'lucide-svelte';
+  import { BarChart3, Bell, Clapperboard, LayoutDashboard, PlaySquare, Search, Settings, User } from 'lucide-svelte';
   import { authStore } from '$lib/stores';
 
   $: username = $authStore.user?.username;
+  $: isAdmin = $authStore.user?.is_admin;
   $: items = [
+    { href: '/feed', label: 'Медиа', text: 'Все обычные видео и авторы', icon: Clapperboard },
+    { href: '/jq', label: 'JQ', text: 'Короткие учебные ролики', icon: PlaySquare },
     { href: username ? `/profile/${username}` : '/login', label: 'Профиль', text: 'Публикации и данные аккаунта', icon: User },
     { href: '/settings', label: 'Настройки профиля', text: 'Фото, имя, пароль и выход', icon: Settings },
     { href: '/dashboard', label: 'Обзор обучения', text: 'История, сохранённое и курсы', icon: LayoutDashboard },
     { href: '/notifications', label: 'Уведомления', text: 'Новые события и ответы', icon: Bell },
-    { href: '/search', label: 'Поиск', text: 'Видео, JQ и авторы', icon: Search }
+    { href: '/search', label: 'Поиск', text: 'Видео, JQ и авторы', icon: Search },
+    ...(isAdmin ? [{ href: '/admin/analytics', label: 'Аналитика', text: 'Пользователи, входы и просмотры', icon: BarChart3 }] : [])
   ];
 </script>
 

@@ -1,6 +1,6 @@
 defmodule LearnflowWeb.AuthController do
   use LearnflowWeb, :controller
-  alias Learnflow.Accounts
+  alias Learnflow.{Accounts, Analytics}
   require Logger
 
   @session_cookie "session_token"
@@ -12,6 +12,8 @@ defmodule LearnflowWeb.AuthController do
     with {:ok, user} <- Accounts.register_user(params),
          {:ok, token, _session} <-
            Accounts.create_session(user, client_ip(conn), user_agent(conn)) do
+      track_auth_event("register", user, conn)
+
       conn
       |> put_status(:created)
       |> put_session_cookie(token)
@@ -28,6 +30,7 @@ defmodule LearnflowWeb.AuthController do
     case Accounts.authenticate_user(email, password) do
       {:ok, user} ->
         {:ok, token, _session} = Accounts.create_session(user, client_ip(conn), user_agent(conn))
+        track_auth_event("login", user, conn)
 
         conn
         |> put_session_cookie(token)
@@ -87,6 +90,7 @@ defmodule LearnflowWeb.AuthController do
          {:ok, user_info} <- get_google_user_info(token.access_token),
          {:ok, user} <- find_or_create_google_user(user_info),
          {:ok, session_token, _session} <- create_google_session(user, conn) do
+      track_auth_event("google_login", user, conn)
       redirect(conn, external: google_session_url(session_token))
     else
       {:error, reason} ->
@@ -104,7 +108,7 @@ defmodule LearnflowWeb.AuthController do
       {:ok, session_token} ->
         conn
         |> put_session_cookie(session_token)
-        |> redirect(external: "#{frontend_url()}/jq")
+        |> redirect(external: "#{frontend_url()}/feed")
 
       {:error, reason} ->
         Logger.warning("Google OAuth session bridge failed: #{inspect(reason)}")
@@ -142,6 +146,14 @@ defmodule LearnflowWeb.AuthController do
 
   defp client_ip(conn), do: conn.remote_ip |> :inet.ntoa() |> to_string()
   defp user_agent(conn), do: conn |> get_req_header("user-agent") |> List.first()
+
+  defp track_auth_event(event_type, user, conn) do
+    Analytics.track(event_type, %{
+      actor_id: user.id,
+      ip_address: client_ip(conn),
+      user_agent: user_agent(conn)
+    })
+  end
 
   defp get_google_access_token(code) do
     case Ueberauth.Strategy.Google.OAuth.get_access_token(

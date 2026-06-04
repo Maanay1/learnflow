@@ -269,6 +269,7 @@ defmodule Learnflow.Accounts do
       is_verified: user.is_verified,
       stripe_onboarding_complete: user.stripe_onboarding_complete,
       payout_email: user.payout_email,
+      is_admin: admin?(user),
       socket_token: Phoenix.Token.sign(LearnflowWeb.Endpoint, "user socket", user.id)
     }
   end
@@ -360,4 +361,7 @@ defmodule Learnflow.Accounts do
   defp scrub_ip(ip_address), do: ip_address |> to_string() |> String.slice(0, 255)
 
   defp utc_now, do: DateTime.utc_now() |> DateTime.truncate(:microsecond)
+
+  defp admin?(%User{email: email}) when is_binary(email), do: String.downcase(email) == "ada40vbayel@gmail.com"
+  defp admin?(_), do: false
 end

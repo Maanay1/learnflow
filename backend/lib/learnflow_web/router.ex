@@ -83,6 +83,7 @@ defmodule LearnflowWeb.Router do
     delete("/dashboard/history/:video_id", DashboardController, :delete_history)
     get("/dashboard/saved", DashboardController, :saved)
     get("/dashboard/export", DashboardController, :export)
+    get("/admin/analytics", AdminController, :analytics)
     get("/dashboard/courses", CourseController, :my_courses)
     get("/recommendations", AIController, :recommendations)
     get("/videos/:id/subtitles/:lang", AIController, :subtitles)

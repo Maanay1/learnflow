@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
 
-  onMount(() => goto('/jq'));
+  onMount(() => goto('/feed'));
 </script>
 
 <section class="grid min-h-screen place-items-center bg-black">
