@@ -77,7 +77,7 @@ defmodule LearnflowWeb.AuthController do
   # (Custom Tabs / ASWebAuthenticationSession) and receive the result through
   # the `jarq://auth` deep link instead of a web redirect.
   def google_request(conn, params) do
-    state = google_state(params["app"] in ["1", "true"])
+    state = google_state(app_platform(params["app"]))
 
     url =
       Ueberauth.Strategy.Google.OAuth.authorize_url!(
@@ -90,17 +90,16 @@ defmodule LearnflowWeb.AuthController do
   end
 
   def google_callback(conn, %{"code" => code, "state" => state}) do
-    with {:ok, app?} <- verify_google_state(state),
+    with {:ok, app} <- verify_google_state(state),
          {:ok, token} <- get_google_access_token(code),
          {:ok, user_info} <- get_google_user_info(token.access_token),
          {:ok, user} <- find_or_create_google_user(user_info),
          {:ok, session_token, _session} <- create_google_session(user, conn) do
       track_auth_event("google_login", user, conn)
 
-      if app? do
-        redirect(conn, external: "#{@app_callback}?ticket=#{URI.encode_www_form(session_token)}")
-      else
-        redirect(conn, external: google_session_url(session_token))
+      case app do
+        nil -> redirect(conn, external: google_session_url(session_token))
+        platform -> return_to_app(conn, platform, "ticket=#{URI.encode_www_form(session_token)}")
       end
     else
       {:error, reason} ->
@@ -114,10 +113,9 @@ defmodule LearnflowWeb.AuthController do
   end
 
   defp google_failure(conn, state) do
-    if app_state?(state) do
-      redirect(conn, external: "#{@app_callback}?error=google_auth_failed")
-    else
-      redirect(conn, external: "#{frontend_url()}/login?error=google_auth_failed")
+    case state_platform(state) do
+      nil -> redirect(conn, external: "#{frontend_url()}/login?error=google_auth_failed")
+      platform -> return_to_app(conn, platform, "error=google_auth_failed")
     end
   end
 
@@ -224,25 +222,64 @@ defmodule LearnflowWeb.AuthController do
   defp google_session_url(token),
     do: "#{frontend_url()}/auth/google/session?ticket=#{URI.encode_www_form(token)}"
 
-  defp google_state(app?) do
+  # nil = website, "ios" (ASWebAuthenticationSession), "android" (Custom Tab).
+  defp app_platform("android"), do: "android"
+  defp app_platform(value) when value in ["1", "true", "ios"], do: "ios"
+  defp app_platform(_value), do: nil
+
+  defp google_state(platform) do
     nonce = :crypto.strong_rand_bytes(32) |> Base.url_encode64(padding: false)
-    payload = if app?, do: %{"nonce" => nonce, "app" => true}, else: nonce
+    payload = if platform, do: %{"nonce" => nonce, "app" => platform}, else: nonce
     Phoenix.Token.sign(LearnflowWeb.Endpoint, @google_state_salt, payload)
   end
 
-  # Returns {:ok, app?}.
+  # Returns {:ok, platform} where platform is nil for the website.
   defp verify_google_state(state) do
     case Phoenix.Token.verify(LearnflowWeb.Endpoint, @google_state_salt, state,
            max_age: @google_state_max_age
          ) do
-      {:ok, %{"app" => true}} -> {:ok, true}
-      {:ok, _nonce} -> {:ok, false}
+      {:ok, %{"app" => true}} -> {:ok, "ios"}
+      {:ok, %{"app" => platform}} when platform in ["ios", "android"] -> {:ok, platform}
+      {:ok, _nonce} -> {:ok, nil}
       {:error, _reason} -> {:error, :invalid_google_state}
     end
   end
 
-  defp app_state?(state) when is_binary(state), do: verify_google_state(state) == {:ok, true}
-  defp app_state?(_state), do: false
+  defp state_platform(state) when is_binary(state) do
+    case verify_google_state(state) do
+      {:ok, platform} -> platform
+      _ -> nil
+    end
+  end
+
+  defp state_platform(_state), do: nil
+
+  # iOS: ASWebAuthenticationSession catches the jarq:// redirect itself.
+  defp return_to_app(conn, "ios", query), do: redirect(conn, external: "#{@app_callback}?#{query}")
+
+  # Android: Chrome may silently block an automatic redirect to a custom scheme,
+  # so show a small page that opens the app through an intent:// link (auto +
+  # a button the user can tap).
+  defp return_to_app(conn, "android", query) do
+    intent = "intent://auth?#{query}#Intent;scheme=jarq;end"
+    escaped = intent |> Plug.HTML.html_escape()
+
+    html = """
+    <!doctype html><html lang="ru"><head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>JARQ</title>
+    <style>body{margin:0;display:grid;min-height:100vh;place-items:center;background:#09090b;color:#fafafa;font:16px system-ui,sans-serif;text-align:center}
+    a{display:inline-block;margin-top:20px;border-radius:14px;background:#f4b740;padding:15px 26px;color:#0a0a0a;font-weight:800;text-decoration:none}
+    p{color:#a1a1aa}</style></head>
+    <body><main><h1>Готово</h1><p>Возвращаемся в приложение JARQ…</p>
+    <a id="open" href="#{escaped}">Открыть JARQ</a></main>
+    <script>location.replace(#{Jason.encode!(intent)});</script></body></html>
+    """
+
+    conn
+    |> put_resp_content_type("text/html")
+    |> send_resp(200, html)
+  end
 
   defp backend_url,
     do: System.get_env("BACKEND_URL", "http://localhost:4000") |> String.trim_trailing("/")

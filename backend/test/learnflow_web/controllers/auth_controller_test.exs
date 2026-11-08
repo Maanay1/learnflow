@@ -149,4 +149,14 @@ defmodule LearnflowWeb.AuthControllerTest do
     conn = get(build_conn(), "/auth/google/callback?error=access_denied&state=#{URI.encode_www_form(state)}")
     assert redirected_to(conn) == "http://localhost:3000/login?error=google_auth_failed"
   end
+
+  test "Google sign-in from the Android app returns through an intent:// page", %{conn: conn} do
+    conn = get(conn, "/auth/google?app=android")
+    state = conn |> redirected_to() |> URI.parse() |> Map.get(:query) |> URI.decode_query() |> Map.fetch!("state")
+
+    conn = get(build_conn(), "/auth/google/callback?error=access_denied&state=#{URI.encode_www_form(state)}")
+    body = html_response(conn, 200)
+    assert body =~ "intent://auth?error=google_auth_failed#Intent;scheme=jarq;end"
+  end
 end
+

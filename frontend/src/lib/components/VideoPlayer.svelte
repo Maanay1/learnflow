@@ -174,7 +174,7 @@
     display: block;
     height: 100%;
     border-radius: inherit;
-    background: #6366f1;
+    background: var(--primary);
   }
 
   .seek input {
@@ -221,6 +221,6 @@
 
   .control-row input {
     width: 72px;
-    accent-color: #6366f1;
+    accent-color: var(--primary);
   }
 </style>

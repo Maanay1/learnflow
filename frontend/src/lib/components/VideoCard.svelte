@@ -10,9 +10,9 @@
   const themes = {
     design: { color: '#35c99a', bg: '#0c2a24', label: 'Дизайн' },
     math: { color: '#f18b66', bg: '#301b16', label: 'Математика' },
-    code: { color: '#9187f5', bg: '#211e3b', label: 'Программирование' },
+    code: { color: 'var(--primary-text)', bg: '#241c0c', label: 'Программирование' },
     growth: { color: '#e8b24d', bg: '#302511', label: 'Саморазвитие' },
-    default: { color: '#7f77dd', bg: '#211e3a', label: 'Обучение' }
+    default: { color: 'var(--primary)', bg: '#241c0c', label: 'Обучение' }
   };
 
   function videoTheme(item) {

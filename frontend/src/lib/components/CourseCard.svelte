@@ -7,7 +7,7 @@
   const duration = (seconds = 0) => `${Math.round((seconds || 0) / 60)} мин`;
 </script>
 
-<a href={`/courses/${course.slug}`} class="group block overflow-hidden rounded-xl border bg-[var(--surface)] transition duration-200 hover:scale-[1.02]" style="border-color:var(--border)" on:mouseenter={(e) => (e.currentTarget.style.boxShadow = '0 10px 34px rgba(99,102,241,0.22)')} on:mouseleave={(e) => (e.currentTarget.style.boxShadow = 'none')}>
+<a href={`/courses/${course.slug}`} class="group block overflow-hidden rounded-xl border bg-[var(--surface)] transition duration-200 hover:scale-[1.02]" style="border-color:var(--border)" on:mouseenter={(e) => (e.currentTarget.style.boxShadow = '0 10px 34px rgba(244,183,64,0.22)')} on:mouseleave={(e) => (e.currentTarget.style.boxShadow = 'none')}>
   <div class="relative aspect-video bg-[var(--surface-2)]">
     {#if course.thumbnail_url}
       <img src={course.thumbnail_url} alt={course.title} class="h-full w-full object-cover" loading="lazy" />

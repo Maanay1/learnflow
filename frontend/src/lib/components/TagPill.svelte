@@ -1,7 +1,7 @@
 <script>
-  export let tag = { name: 'General', color: '#6366f1' };
+  export let tag = { name: 'General', color: 'var(--primary)' };
 </script>
 
-<span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold text-white" style={`background:${tag.color || '#6366f1'}33;color:${tag.color || '#6366f1'}`}>
+<span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold text-white" style={`background:${tag.color || 'var(--primary)'}33;color:${tag.color || 'var(--primary)'}`}>
   {tag.name}
 </span>

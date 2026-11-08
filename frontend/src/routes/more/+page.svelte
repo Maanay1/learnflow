@@ -30,5 +30,5 @@
 </section>
 
 <style>
-  h1{margin-bottom:18px;font-size:30px;font-weight:900}.menu{display:grid;gap:10px}.menu a{display:flex;align-items:center;gap:13px;border:1px solid var(--border);border-radius:15px;background:var(--surface);padding:14px}.icon{display:grid;width:42px;height:42px;flex:none;place-items:center;border-radius:13px;background:var(--primary-soft);color:#a9a2ff}.menu span:last-child{display:grid;gap:2px}.menu small{color:var(--text-2);font-size:12px}
+  h1{margin-bottom:18px;font-size:30px;font-weight:900}.menu{display:grid;gap:10px}.menu a{display:flex;align-items:center;gap:13px;border:1px solid var(--border);border-radius:15px;background:var(--surface);padding:14px}.icon{display:grid;width:42px;height:42px;flex:none;place-items:center;border-radius:13px;background:var(--primary-soft);color:var(--primary-text)}.menu span:last-child{display:grid;gap:2px}.menu small{color:var(--text-2);font-size:12px}
 </style>

@@ -3,20 +3,29 @@
 @tailwind utilities;
 
 :root {
-  --bg: #0f0f11;
-  --surface: #161619;
-  --surface-2: #1d1d21;
-  --surface-3: #27272c;
-  --border: rgba(255,255,255,0.11);
-  --primary: #7f77dd;
-  --primary-soft: rgba(127,119,221,0.16);
-  --accent: linear-gradient(135deg, #7f77dd, #978df0);
-  --text: #f5f5f7;
-  --text-2: #a9a9b2;
-  --text-3: #73737c;
+  /* JARQ "Ink & Gold": deep graphite surfaces with a rich amber-gold accent. */
+  --bg: #09090b;
+  --surface: #121215;
+  --surface-2: #18181c;
+  --surface-3: #232328;
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.14);
+  --primary: #f4b740;
+  --primary-strong: #e09a1c;
+  --primary-text: #f7c860;
+  --primary-soft: rgba(244,183,64,0.13);
+  --on-primary: #161004;
+  --accent: linear-gradient(135deg, #fbd27a 0%, #f4b740 45%, #e3951a 100%);
+  --glow: 0 10px 30px rgba(244,183,64,0.22);
+  --text: #f6f5f2;
+  --text-2: #a8a7ad;
+  --text-3: #6f6e76;
+  --danger: #f87171;
+  --success: #34d399;
   color: var(--text);
   background: var(--bg);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Manrope', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  color-scheme: dark;
 }
 
 * {
@@ -36,7 +45,7 @@ body {
   min-height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Manrope', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 body {
@@ -81,7 +90,7 @@ a:active,
 }
 
 :is(a, button, input, textarea, select, [tabindex]):focus-visible {
-  outline: 2px solid #6366f1;
+  outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
 
@@ -95,8 +104,13 @@ h2,
 h3 {
   color: var(--text);
   font-weight: 800;
-  letter-spacing: 0;
+  letter-spacing: -0.02em;
   line-height: 1.15;
+}
+
+::selection {
+  background: var(--primary);
+  color: var(--on-primary);
 }
 
 .main {
@@ -125,6 +139,12 @@ h3 {
   background: var(--surface);
   color: var(--text);
   padding: 0.65rem 0.8rem;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
 }
 
 .btn,
@@ -140,7 +160,8 @@ h3 {
 
 .btn {
   background: var(--accent);
-  color: var(--text);
+  color: var(--on-primary);
+  box-shadow: var(--glow);
 }
 
 .btn-secondary {
@@ -150,7 +171,7 @@ h3 {
 }
 
 .card {
-  border-radius: 12px;
+  border-radius: 16px;
   border: 1px solid var(--border);
   background: var(--surface);
 }
