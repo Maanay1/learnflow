@@ -123,7 +123,7 @@ defmodule LearnflowWeb.AuthControllerTest do
   test "GET /auth/google/callback rejects a callback without state", %{conn: conn} do
     conn = get(conn, "/auth/google/callback?code=unused")
 
-    assert redirected_to(conn) == "http://localhost:3000/login?error=google_auth_failed"
+    assert redirected_to(conn) == "http://localhost:3000/login?error=google_auth_failed&reason=no_state"
   end
 
   defp put_csrf(conn) do
@@ -139,7 +139,9 @@ defmodule LearnflowWeb.AuthControllerTest do
     state = conn |> redirected_to() |> URI.parse() |> Map.get(:query) |> URI.decode_query() |> Map.fetch!("state")
 
     conn = get(build_conn(), "/auth/google/callback?error=access_denied&state=#{URI.encode_www_form(state)}")
-    assert redirected_to(conn) =~ ~r{^jarq://auth/?\?error=google_auth_failed$}
+    body = html_response(conn, 200)
+    assert body =~ "Код ошибки: google_access_denied"
+    assert body =~ "jarq://auth?error=google_auth_failed&amp;reason=google_access_denied"
   end
 
   test "Google sign-in from the website keeps redirecting to the website", %{conn: conn} do
@@ -147,7 +149,7 @@ defmodule LearnflowWeb.AuthControllerTest do
     state = conn |> redirected_to() |> URI.parse() |> Map.get(:query) |> URI.decode_query() |> Map.fetch!("state")
 
     conn = get(build_conn(), "/auth/google/callback?error=access_denied&state=#{URI.encode_www_form(state)}")
-    assert redirected_to(conn) == "http://localhost:3000/login?error=google_auth_failed"
+    assert redirected_to(conn) == "http://localhost:3000/login?error=google_auth_failed&reason=google_access_denied"
   end
 
   test "Google sign-in from the Android app returns through an intent:// page", %{conn: conn} do
@@ -156,7 +158,8 @@ defmodule LearnflowWeb.AuthControllerTest do
 
     conn = get(build_conn(), "/auth/google/callback?error=access_denied&state=#{URI.encode_www_form(state)}")
     body = html_response(conn, 200)
-    assert body =~ "intent://auth?error=google_auth_failed#Intent;scheme=jarq;end"
+    assert body =~ "Код ошибки: google_access_denied"
+    assert body =~ "intent://auth?error=google_auth_failed&amp;reason=google_access_denied#Intent;scheme=jarq;end"
   end
 end
 

@@ -12,7 +12,12 @@
   let showPassword = false, error = '', loading = false;
   // The backend redirects here with ?error=google_auth_failed when Google sign-in fails.
   const authErrors = { google_auth_failed: 'Не удалось войти через Google. Попробуйте ещё раз или войдите по email.' };
-  onMount(() => { error = authErrors[new URLSearchParams(window.location.search).get('error')] || error; });
+  onMount(() => {
+    const params = new URLSearchParams(window.location.search);
+    const message = authErrors[params.get('error')];
+    // `reason` is a short diagnostic code from the backend (e.g. "token", "ticket").
+    if (message) error = params.get('reason') ? `${message} (код: ${params.get('reason')})` : message;
+  });
   $: registering = mode === 'register';
 
   async function submit() {

@@ -104,20 +104,37 @@ defmodule LearnflowWeb.AuthController do
     else
       {:error, reason} ->
         Logger.warning("Google OAuth callback failed: #{inspect(reason)}")
-        google_failure(conn, state)
+        google_failure(conn, state, failure_code(reason))
     end
   end
 
   def google_callback(conn, params) do
-    google_failure(conn, params["state"])
+    code =
+      cond do
+        params["error"] -> "google_#{params["error"]}"
+        is_nil(params["state"]) -> "no_state"
+        true -> "no_code"
+      end
+    google_failure(conn, params["state"], code)
   end
 
-  defp google_failure(conn, state) do
+  # `code` is a short, non-secret hint shown to the user so failures can be diagnosed.
+  defp google_failure(conn, state, code) do
+    query = "error=google_auth_failed&reason=#{URI.encode_www_form(code)}"
+
     case state_platform(state) do
-      nil -> redirect(conn, external: "#{frontend_url()}/login?error=google_auth_failed")
-      platform -> return_to_app(conn, platform, "error=google_auth_failed")
+      nil -> redirect(conn, external: "#{frontend_url()}/login?#{query}")
+      platform -> app_page(conn, app_link(platform, query), "Не удалось войти через Google", "Код ошибки: #{code}", false)
     end
   end
+
+  defp failure_code(:invalid_google_state), do: "state"
+  defp failure_code({:token_exchange, _}), do: "token"
+  defp failure_code({:google_user_info, status}), do: "userinfo_#{status}"
+  defp failure_code(:google_user_info_request_failed), do: "userinfo"
+  defp failure_code({:account, %{field: field}}), do: "account_#{field}"
+  defp failure_code({:session, _}), do: "session"
+  defp failure_code(_), do: "unknown"
 
   def google_session(conn, %{"ticket" => ticket}) do
     case Accounts.rotate_session_token(ticket, client_ip(conn), user_agent(conn)) do
@@ -128,12 +145,12 @@ defmodule LearnflowWeb.AuthController do
 
       {:error, reason} ->
         Logger.warning("Google OAuth session bridge failed: #{inspect(reason)}")
-        redirect(conn, external: "#{frontend_url()}/login?error=google_auth_failed")
+        redirect(conn, external: "#{frontend_url()}/login?error=google_auth_failed&reason=ticket")
     end
   end
 
   def google_session(conn, _params) do
-    redirect(conn, external: "#{frontend_url()}/login?error=google_auth_failed")
+    redirect(conn, external: "#{frontend_url()}/login?error=google_auth_failed&reason=no_ticket")
   end
 
   defp put_session_cookie(conn, token) do
@@ -255,25 +272,32 @@ defmodule LearnflowWeb.AuthController do
   defp state_platform(_state), do: nil
 
   # iOS: ASWebAuthenticationSession catches the jarq:// redirect itself.
-  defp return_to_app(conn, "ios", query), do: redirect(conn, external: "#{@app_callback}?#{query}")
+  defp return_to_app(conn, "ios", query), do: redirect(conn, external: app_link("ios", query))
 
   # Android: Chrome may silently block an automatic redirect to a custom scheme,
-  # so show a small page that opens the app through an intent:// link (auto +
-  # a button the user can tap).
-  defp return_to_app(conn, "android", query) do
-    intent = "intent://auth?#{query}#Intent;scheme=jarq;end"
-    escaped = intent |> Plug.HTML.html_escape()
+  # so show a page that opens the app through an intent:// link (auto + button).
+  defp return_to_app(conn, "android", query),
+    do: app_page(conn, app_link("android", query), "Готово", "Возвращаемся в приложение JARQ…", true)
+
+  defp app_link("ios", query), do: "#{@app_callback}?#{query}"
+  defp app_link("android", query), do: "intent://auth?#{query}#Intent;scheme=jarq;end"
+
+  # Small page shown inside the sign-in browser. Failures stay visible (with a
+  # diagnostic code) instead of silently bouncing back to the app.
+  defp app_page(conn, link, title, text, auto_open?) do
+    escaped = Plug.HTML.html_escape(link)
+    script = if auto_open?, do: "<script>location.replace(#{Jason.encode!(link)});</script>", else: ""
 
     html = """
     <!doctype html><html lang="ru"><head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>JARQ</title>
-    <style>body{margin:0;display:grid;min-height:100vh;place-items:center;background:#09090b;color:#fafafa;font:16px system-ui,sans-serif;text-align:center}
+    <style>body{margin:0;display:grid;min-height:100vh;place-items:center;background:#09090b;color:#fafafa;font:16px system-ui,sans-serif;text-align:center;padding:24px}
     a{display:inline-block;margin-top:20px;border-radius:14px;background:#f4b740;padding:15px 26px;color:#0a0a0a;font-weight:800;text-decoration:none}
     p{color:#a1a1aa}</style></head>
-    <body><main><h1>Готово</h1><p>Возвращаемся в приложение JARQ…</p>
+    <body><main><h1>#{Plug.HTML.html_escape(title)}</h1><p>#{Plug.HTML.html_escape(text)}</p>
     <a id="open" href="#{escaped}">Открыть JARQ</a></main>
-    <script>location.replace(#{Jason.encode!(intent)});</script></body></html>
+    #{script}</body></html>
     """
 
     conn
