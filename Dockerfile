@@ -1,4 +1,4 @@
-FROM elixir:1.16-alpine AS build
+FROM hexpm/elixir:1.16.3-erlang-26.2.5.21-alpine-3.22.8 AS build
 
 RUN apk add --no-cache build-base git
 WORKDIR /app
@@ -12,9 +12,9 @@ RUN MIX_ENV=prod mix compile
 RUN MIX_ENV=prod mix phx.gen.release
 RUN MIX_ENV=prod mix release
 
-FROM alpine:3.18 AS app
+FROM alpine:3.22 AS app
 
-RUN apk add --no-cache libstdc++ openssl ncurses-libs
+RUN apk add --no-cache libstdc++ libgcc openssl ncurses-libs ca-certificates
 WORKDIR /app
 
 ENV HOME=/app \
