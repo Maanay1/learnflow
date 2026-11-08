@@ -181,5 +181,20 @@ defmodule LearnflowWeb.VideoControllerTest do
     assert video.status == "active"
     assert video.duration_seconds == 42
   end
-end
 
+  test "only the creator can delete a video and it disappears from the feed" do
+    creator = register_user(%{"is_creator" => true})
+    stranger = register_user(%{})
+    video = active_video(creator)
+
+    conn = stranger |> auth_conn() |> delete("/api/videos/#{video.id}")
+    assert json_response(conn, 404)
+
+    conn = creator |> auth_conn() |> delete("/api/videos/#{video.id}")
+    assert %{"ok" => true} = json_response(conn, 200)
+    assert Videos.get_video_by_id(video.id).status == "deleted"
+
+    conn = get(build_conn(), "/api/videos/#{video.slug}")
+    assert json_response(conn, 404)
+  end
+end

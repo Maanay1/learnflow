@@ -126,6 +126,21 @@ defmodule Learnflow.Videos do
     end
   end
 
+  @doc "Hides a video everywhere and removes its files from storage (best effort)."
+  def delete_video(%Video{} = video) do
+    with {:ok, deleted} <- video |> Video.changeset(%{"status" => "deleted"}) |> Repo.update() do
+      Task.start(fn -> delete_media_files(video) end)
+      {:ok, deleted}
+    end
+  end
+
+  defp delete_media_files(%Video{} = video) do
+    for {bucket, key} <- [{Storage.bucket_videos(), video.video_key}, {Storage.bucket_thumbnails(), video.thumbnail_key}],
+        is_binary(key) and key != "" and not String.starts_with?(key, "http") do
+      Storage.delete_object(bucket, key)
+    end
+  end
+
   @doc "Marks an upload that could not be converted so it does not hang forever."
   def processing_failed(%Video{status: "pending"} = video) do
     video |> Video.changeset(%{"status" => "rejected"}) |> Repo.update()

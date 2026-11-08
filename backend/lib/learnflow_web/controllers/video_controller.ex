@@ -65,6 +65,13 @@ defmodule LearnflowWeb.VideoController do
     end
   end
 
+  def delete(conn, %{"id" => id}) do
+    with {:ok, video} <- creator_video(conn, id),
+         {:ok, _video} <- Videos.delete_video(video) do
+      json(conn, %{ok: true})
+    end
+  end
+
   def chapters(conn, %{"id" => id, "chapters" => chapters}) do
     with {:ok, video} <- creator_video(conn, id),
          {:ok, inserted} <- Videos.add_chapters(video, chapters) do

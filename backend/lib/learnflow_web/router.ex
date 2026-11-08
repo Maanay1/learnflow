@@ -65,6 +65,7 @@ defmodule LearnflowWeb.Router do
     post("/videos/:id/thumbnail-url", VideoController, :thumbnail_url)
     post("/videos/:id/confirm", VideoController, :confirm)
     post("/videos/:id/chapters", VideoController, :chapters)
+    delete("/videos/:id", VideoController, :delete)
     get("/videos/:id/view-url", VideoController, :view_url)
     get("/videos/:id/progress", VideoController, :progress)
     post("/videos/:id/progress", VideoController, :progress)

@@ -89,7 +89,8 @@ export const videos = {
   complete: (id) => post(`/api/videos/${id}/complete`),
   subtitles: (id, lang) => get(`/api/videos/${id}/subtitles/${lang}`),
   summary: (id) => get(`/api/videos/${id}/summary`),
-  transcribe: (id) => post(`/api/videos/${id}/transcribe`)
+  transcribe: (id) => post(`/api/videos/${id}/transcribe`),
+  remove: (id) => del(`/api/videos/${id}`)
 };
 
 export const social = {

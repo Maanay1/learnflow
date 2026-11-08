@@ -180,6 +180,9 @@ defmodule Learnflow.Accounts do
         case Repo.update(changeset) do
           {:ok, updated_user} ->
             Repo.delete_all(from s in Session, where: s.user_id == ^user.id)
+
+      # A deleted account must not keep publishing videos in feeds.
+      Repo.update_all(from(v in Learnflow.Videos.Video, where: v.creator_id == ^user.id), set: [status: "deleted"])
             updated_user
 
           {:error, changeset} ->
@@ -195,6 +198,9 @@ defmodule Learnflow.Accounts do
   def delete_account(%User{} = user) do
     Repo.transaction(fn ->
       Repo.delete_all(from s in Session, where: s.user_id == ^user.id)
+
+      # A deleted account must not keep publishing videos in feeds.
+      Repo.update_all(from(v in Learnflow.Videos.Video, where: v.creator_id == ^user.id), set: [status: "deleted"])
 
       user
       |> User.delete_account_changeset()
