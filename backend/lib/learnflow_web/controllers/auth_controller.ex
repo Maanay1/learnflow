@@ -133,6 +133,10 @@ defmodule LearnflowWeb.AuthController do
   defp failure_code({:token_exchange, %OAuth2.Response{body: %{"error" => error}}}), do: "token_#{safe_code(error)}"
   defp failure_code({:token_exchange, %OAuth2.Response{status_code: status}}), do: "token_http_#{status}"
   defp failure_code({:token_exchange, %OAuth2.Error{reason: reason}}), do: "token_#{safe_code(reason)}"
+  # ueberauth_google returns {google_error, description}, e.g. {"invalid_client", "..."}.
+  defp failure_code({:token_exchange, {error, _description}}) when is_binary(error) or is_atom(error),
+    do: "token_#{safe_code(error)}"
+
   defp failure_code({:token_exchange, _}), do: "token"
   defp failure_code({:google_user_info, status}), do: "userinfo_#{status}"
   defp failure_code(:google_user_info_request_failed), do: "userinfo"
