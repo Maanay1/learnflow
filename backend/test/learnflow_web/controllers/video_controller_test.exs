@@ -153,4 +153,33 @@ defmodule LearnflowWeb.VideoControllerTest do
 
     assert %{"progress" => %{"seconds_watched" => 120, "completed" => true}} = json_response(conn, 200)
   end
+
+  test "iPhone MOV uploads stay pending until ffmpeg processing publishes them" do
+    creator = register_user(%{"is_creator" => true})
+
+    conn = creator |> auth_conn() |> post("/api/videos", %{"title" => "iPhone clip", "format" => "jq", "language" => "ru"})
+    assert %{"video" => %{"id" => id}} = json_response(conn, 201)
+
+    conn =
+      creator
+      |> auth_conn()
+      |> post("/api/videos/#{id}/upload-url", %{"content_type" => "video/quicktime", "file_size_bytes" => 5_000})
+
+    assert %{"key" => key} = json_response(conn, 200)
+    assert String.ends_with?(key, "/source.mov")
+
+    conn = creator |> auth_conn() |> post("/api/videos/#{id}/confirm", %{"video_key" => key, "duration_seconds" => 0})
+    assert %{"video" => %{"status" => "pending"}} = json_response(conn, 200)
+
+    {:ok, video} =
+      Videos.finish_processing(Videos.get_video_by_id(id), %{
+        "video_key" => "videos/#{id}/video.mp4",
+        "thumbnail_key" => "thumbnails/#{id}/auto.jpg",
+        "duration_seconds" => 42
+      })
+
+    assert video.status == "active"
+    assert video.duration_seconds == 42
+  end
 end
+

@@ -31,7 +31,12 @@ config :ex_aws,
 
 config :learnflow, Oban,
   repo: Learnflow.Repo,
-  queues: [ai: 5],
-  plugins: [Oban.Plugins.Pruner]
+  queues: [ai: 5, media: 1],
+  plugins: [
+    Oban.Plugins.Pruner,
+    # Free hosting may restart/sleep the instance mid-job; rescue such jobs
+    # (longer than ProcessVideoJob.timeout/1 so running jobs are not duplicated).
+    {Oban.Plugins.Lifeline, rescue_after: :timer.minutes(130)}
+  ]
 
 import_config "#{config_env()}.exs"

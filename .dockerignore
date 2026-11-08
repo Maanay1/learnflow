@@ -1,0 +1,9 @@
+**/_build
+**/deps
+**/node_modules
+**/.elixir_ls
+.git
+.env
+**/.env
+frontend
+infra

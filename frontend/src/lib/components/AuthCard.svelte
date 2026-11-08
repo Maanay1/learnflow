@@ -1,5 +1,6 @@
 <script>
   import { goto } from '$app/navigation';
+  import { onMount } from 'svelte';
   import { Eye, EyeOff } from 'lucide-svelte';
   import { API_BASE, auth } from '$lib/api';
   import { authStore } from '$lib/stores';
@@ -9,6 +10,9 @@
   let mode = initialMode;
   let username = '', email = '', password = '', confirmPassword = '';
   let showPassword = false, error = '', loading = false;
+  // The backend redirects here with ?error=google_auth_failed when Google sign-in fails.
+  const authErrors = { google_auth_failed: 'Не удалось войти через Google. Попробуйте ещё раз или войдите по email.' };
+  onMount(() => { error = authErrors[new URLSearchParams(window.location.search).get('error')] || error; });
   $: registering = mode === 'register';
 
   async function submit() {

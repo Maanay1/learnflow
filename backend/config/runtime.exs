@@ -37,6 +37,17 @@ unless config_env() == :test do
       "http://#{phx_host}"
     ]
     |> Enum.reject(&(&1 in [nil, ""]))
+    # Allow both apex and www hosts (jarq.me redirects to www.jarq.me); otherwise
+    # websockets for chats and notifications are rejected with 403.
+    |> Enum.flat_map(fn origin ->
+      uri = URI.parse(origin)
+
+      case uri.host do
+        "www." <> apex -> [origin, URI.to_string(%{uri | host: apex})]
+        host when is_binary(host) and host != "localhost" -> [origin, URI.to_string(%{uri | host: "www." <> host})]
+        _ -> [origin]
+      end
+    end)
     |> Enum.uniq()
 
   config :learnflow, Learnflow.Repo,

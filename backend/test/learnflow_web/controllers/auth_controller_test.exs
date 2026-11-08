@@ -101,7 +101,7 @@ defmodule LearnflowWeb.AuthControllerTest do
 
     conn = get(conn, "/auth/google/session?ticket=#{URI.encode_www_form(ticket)}")
 
-    assert redirected_to(conn) == "http://localhost:3000/jq"
+    assert redirected_to(conn) == "http://localhost:3000/feed"
     session_token = conn.resp_cookies["session_token"].value
     refute session_token == ticket
     assert Accounts.get_user_by_session_token(ticket) == nil
@@ -132,5 +132,21 @@ defmodule LearnflowWeb.AuthControllerTest do
     conn
     |> put_req_cookie("csrf_token", token)
     |> put_req_header("x-csrf-token", token)
+  end
+
+  test "Google sign-in started from the mobile app returns to the app deep link", %{conn: conn} do
+    conn = get(conn, "/auth/google?app=1")
+    state = conn |> redirected_to() |> URI.parse() |> Map.get(:query) |> URI.decode_query() |> Map.fetch!("state")
+
+    conn = get(build_conn(), "/auth/google/callback?error=access_denied&state=#{URI.encode_www_form(state)}")
+    assert redirected_to(conn) =~ ~r{^jarq://auth/?\?error=google_auth_failed$}
+  end
+
+  test "Google sign-in from the website keeps redirecting to the website", %{conn: conn} do
+    conn = get(conn, "/auth/google")
+    state = conn |> redirected_to() |> URI.parse() |> Map.get(:query) |> URI.decode_query() |> Map.fetch!("state")
+
+    conn = get(build_conn(), "/auth/google/callback?error=access_denied&state=#{URI.encode_www_form(state)}")
+    assert redirected_to(conn) == "http://localhost:3000/login?error=google_auth_failed"
   end
 end

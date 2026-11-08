@@ -25,7 +25,13 @@
   }
 
   $: theme = videoTheme(video);
-  $: tag = video?.tags?.[0]?.name || theme.label;
+  // Subjects are stored in English (upload form values); show them in Russian.
+  const subjectLabels = {
+    mathematics: 'Математика', physics: 'Физика', chemistry: 'Химия', biology: 'Биология', programming: 'Программирование',
+    history: 'История', languages: 'Языки', economics: 'Экономика', design: 'Дизайн', philosophy: 'Философия'
+  };
+  $: rawTag = video?.tags?.[0]?.name;
+  $: tag = (rawTag && subjectLabels[rawTag.toLowerCase()]) || rawTag || theme.label;
 </script>
 
 <a href={`/video/${video?.slug || ''}`} class={`video-card ${aspect}`} style={`--topic:${theme.color};--preview:${theme.bg}`}>

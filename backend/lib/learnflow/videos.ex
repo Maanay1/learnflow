@@ -7,9 +7,17 @@ defmodule Learnflow.Videos do
   alias Learnflow.Social.{Like, Save}
   alias Learnflow.Storage
   alias Learnflow.Videos.{SubjectTag, Video, VideoChapter, WatchProgress}
-  alias Learnflow.Workers.TranscribeVideoJob
+  alias Learnflow.Workers.{ProcessVideoJob, TranscribeVideoJob}
 
-  @allowed_video_content_types %{"video/mp4" => "mp4", "video/webm" => "webm"}
+  # Everything except web-ready MP4 is converted by ProcessVideoJob (ffmpeg).
+  @allowed_video_content_types %{
+    "video/mp4" => "mp4",
+    "video/webm" => "webm",
+    "video/quicktime" => "mov",
+    "video/x-m4v" => "m4v",
+    "video/3gpp" => "3gp",
+    "video/x-matroska" => "mkv"
+  }
   @allowed_thumbnail_content_types %{
     "image/jpeg" => "jpg",
     "image/png" => "png",
@@ -73,21 +81,70 @@ defmodule Learnflow.Videos do
       attrs
       |> normalize_attrs()
       |> Map.take(["video_key", "thumbnail_key", "duration_seconds"])
-      |> Map.put("status", "active")
+
+    # MP4 can be shown right away; other containers (MOV from iPhone, WebM, ...)
+    # stay pending until ffmpeg has converted them.
+    status = if mp4_key?(Map.get(attrs, "video_key") || video.video_key), do: "active", else: "pending"
 
     video
-    |> Video.changeset(attrs)
+    |> Video.changeset(Map.put(attrs, "status", status))
     |> Repo.update()
     |> case do
       {:ok, updated} ->
-        notify_followers_new_video(updated)
-        schedule_ai_processing(updated)
+        if updated.status == "active" do
+          notify_followers_new_video(updated)
+          schedule_ai_processing(updated)
+        end
+
+        schedule_media_processing(updated)
         {:ok, updated}
 
       error ->
         error
     end
   end
+
+  @doc "Called by ProcessVideoJob once ffmpeg finished. Publishes pending uploads."
+  def finish_processing(%Video{} = video, attrs) do
+    was_pending = video.status == "pending"
+
+    video
+    |> Video.changeset(Map.put(attrs, "status", "active"))
+    |> Repo.update()
+    |> case do
+      {:ok, updated} ->
+        if was_pending do
+          notify_followers_new_video(updated)
+          schedule_ai_processing(updated)
+          Phoenix.PubSub.broadcast(Learnflow.PubSub, "feed:lobby", {:new_video, updated})
+        end
+
+        {:ok, updated}
+
+      error ->
+        error
+    end
+  end
+
+  @doc "Marks an upload that could not be converted so it does not hang forever."
+  def processing_failed(%Video{status: "pending"} = video) do
+    video |> Video.changeset(%{"status" => "rejected"}) |> Repo.update()
+  end
+
+  def processing_failed(_video), do: :ok
+
+  defp mp4_key?(key) when is_binary(key), do: key |> String.downcase() |> String.ends_with?(".mp4")
+  defp mp4_key?(_key), do: false
+
+  defp schedule_media_processing(%Video{id: id, video_key: key}) when is_binary(key) and key != "" do
+    if Application.get_env(:learnflow, :start_oban, true) do
+      %{video_id: id} |> ProcessVideoJob.new() |> Oban.insert()
+    end
+
+    :ok
+  end
+
+  defp schedule_media_processing(_video), do: :ok
 
   def get_video_view_url(%Video{status: "active", video_key: key}, user, session_id)
       when is_binary(key) and key != "" do

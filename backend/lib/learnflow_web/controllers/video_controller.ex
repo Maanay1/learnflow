@@ -57,7 +57,10 @@ defmodule LearnflowWeb.VideoController do
   def confirm(conn, %{"id" => id} = params) do
     with {:ok, video} <- creator_video(conn, id),
          {:ok, video} <- Videos.confirm_upload(video, params) do
-      Phoenix.PubSub.broadcast(Learnflow.PubSub, "feed:lobby", {:new_video, video})
+      if video.status == "active" do
+        Phoenix.PubSub.broadcast(Learnflow.PubSub, "feed:lobby", {:new_video, video})
+      end
+
       json(conn, %{video: VideoJSON.video(video)})
     end
   end

@@ -7,6 +7,7 @@ defmodule LearnflowWeb.AuthController do
   @session_max_age 30 * 24 * 60 * 60
   @google_state_salt "google oauth state"
   @google_state_max_age 10 * 60
+  @app_callback "jarq://auth"
 
   def register(conn, params) do
     with {:ok, user} <- Accounts.register_user(params),
@@ -71,8 +72,12 @@ defmodule LearnflowWeb.AuthController do
 
   def me(conn, _params), do: json(conn, %{user: Accounts.public_user(conn.assigns.current_user)})
 
-  def google_request(conn, _params) do
-    state = google_state()
+  # `?app=1` is used by the Android/iOS apps: Google forbids sign-in inside
+  # embedded WebViews, so the apps open this URL in the system browser
+  # (Custom Tabs / ASWebAuthenticationSession) and receive the result through
+  # the `jarq://auth` deep link instead of a web redirect.
+  def google_request(conn, params) do
+    state = google_state(params["app"] in ["1", "true"])
 
     url =
       Ueberauth.Strategy.Google.OAuth.authorize_url!(
@@ -85,22 +90,35 @@ defmodule LearnflowWeb.AuthController do
   end
 
   def google_callback(conn, %{"code" => code, "state" => state}) do
-    with :ok <- verify_google_state(state),
+    with {:ok, app?} <- verify_google_state(state),
          {:ok, token} <- get_google_access_token(code),
          {:ok, user_info} <- get_google_user_info(token.access_token),
          {:ok, user} <- find_or_create_google_user(user_info),
          {:ok, session_token, _session} <- create_google_session(user, conn) do
       track_auth_event("google_login", user, conn)
-      redirect(conn, external: google_session_url(session_token))
+
+      if app? do
+        redirect(conn, external: "#{@app_callback}?ticket=#{URI.encode_www_form(session_token)}")
+      else
+        redirect(conn, external: google_session_url(session_token))
+      end
     else
       {:error, reason} ->
         Logger.warning("Google OAuth callback failed: #{inspect(reason)}")
-        redirect(conn, external: "#{frontend_url()}/login?error=google_auth_failed")
+        google_failure(conn, state)
     end
   end
 
-  def google_callback(conn, _params) do
-    redirect(conn, external: "#{frontend_url()}/login?error=google_auth_failed")
+  def google_callback(conn, params) do
+    google_failure(conn, params["state"])
+  end
+
+  defp google_failure(conn, state) do
+    if app_state?(state) do
+      redirect(conn, external: "#{@app_callback}?error=google_auth_failed")
+    else
+      redirect(conn, external: "#{frontend_url()}/login?error=google_auth_failed")
+    end
   end
 
   def google_session(conn, %{"ticket" => ticket}) do
@@ -206,19 +224,25 @@ defmodule LearnflowWeb.AuthController do
   defp google_session_url(token),
     do: "#{frontend_url()}/auth/google/session?ticket=#{URI.encode_www_form(token)}"
 
-  defp google_state do
+  defp google_state(app?) do
     nonce = :crypto.strong_rand_bytes(32) |> Base.url_encode64(padding: false)
-    Phoenix.Token.sign(LearnflowWeb.Endpoint, @google_state_salt, nonce)
+    payload = if app?, do: %{"nonce" => nonce, "app" => true}, else: nonce
+    Phoenix.Token.sign(LearnflowWeb.Endpoint, @google_state_salt, payload)
   end
 
+  # Returns {:ok, app?}.
   defp verify_google_state(state) do
     case Phoenix.Token.verify(LearnflowWeb.Endpoint, @google_state_salt, state,
            max_age: @google_state_max_age
          ) do
-      {:ok, _nonce} -> :ok
+      {:ok, %{"app" => true}} -> {:ok, true}
+      {:ok, _nonce} -> {:ok, false}
       {:error, _reason} -> {:error, :invalid_google_state}
     end
   end
+
+  defp app_state?(state) when is_binary(state), do: verify_google_state(state) == {:ok, true}
+  defp app_state?(_state), do: false
 
   defp backend_url,
     do: System.get_env("BACKEND_URL", "http://localhost:4000") |> String.trim_trailing("/")

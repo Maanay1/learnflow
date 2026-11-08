@@ -2,12 +2,16 @@
   import '../app.css';
   import { onMount } from 'svelte';
   import { fade } from 'svelte/transition';
+  import { page } from '$app/stores';
   import { auth } from '$lib/api';
   import { registerServiceWorker } from '$lib/browserNotifications';
   import { authStore } from '$lib/stores';
   import Navbar from '$lib/components/Navbar.svelte';
   import Toast from '$lib/components/Toast.svelte';
   import UsernameSetupModal from '$lib/components/UsernameSetupModal.svelte';
+
+  // Login/registration are full-screen: no navigation bars around the form.
+  $: authPage = ['/login', '/register'].includes($page.url.pathname);
 
   onMount(async () => {
     registerServiceWorker();
@@ -21,7 +25,7 @@
   });
 </script>
 
-<Navbar />
+{#if !authPage}<Navbar />{/if}
 <Toast />
 <UsernameSetupModal />
 <main class="main page-fade" in:fade={{ duration: 200 }} out:fade={{ duration: 200 }}>

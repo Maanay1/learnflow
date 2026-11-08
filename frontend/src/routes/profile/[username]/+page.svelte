@@ -50,7 +50,7 @@
     </header>
     {#if ownProfile}
       <section class="profile-menu" aria-label="Меню профиля">
-        {#each profileItems.slice(0, 3) as item}
+        {#each profileItems.slice(2) as item}
           <a href={item.href}><span><svelte:component this={item.icon} size={19}/></span><strong>{item.label}</strong><small>{item.text}</small></a>
         {/each}
       </section>

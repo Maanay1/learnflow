@@ -14,7 +14,7 @@ RUN MIX_ENV=prod mix release
 
 FROM alpine:3.22 AS app
 
-RUN apk add --no-cache libstdc++ libgcc openssl ncurses-libs ca-certificates
+RUN apk add --no-cache libstdc++ libgcc openssl ncurses-libs ca-certificates ffmpeg
 WORKDIR /app
 
 ENV HOME=/app \

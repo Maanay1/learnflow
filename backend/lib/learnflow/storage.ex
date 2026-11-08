@@ -108,6 +108,29 @@ defmodule Learnflow.Storage do
     end
   end
 
+  @doc "Streams an object to a local file without loading it into memory."
+  def download_file(bucket, key, path) do
+    bucket
+    |> ExAws.S3.download_file(key, path)
+    |> request()
+    |> case do
+      {:ok, _} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc "Uploads a local file in chunks (multipart), suitable for large videos."
+  def upload_file(bucket, key, path, content_type) do
+    path
+    |> ExAws.S3.Upload.stream_file()
+    |> ExAws.S3.upload(bucket, key, content_type: content_type)
+    |> request()
+    |> case do
+      {:ok, _} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
   def delete_object(bucket, key) do
     bucket
     |> ExAws.S3.delete_object(key)
