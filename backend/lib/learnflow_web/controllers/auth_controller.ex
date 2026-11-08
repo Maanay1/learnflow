@@ -129,12 +129,21 @@ defmodule LearnflowWeb.AuthController do
   end
 
   defp failure_code(:invalid_google_state), do: "state"
+  # Include Google's own error (invalid_client, invalid_grant, redirect_uri_mismatch…).
+  defp failure_code({:token_exchange, %OAuth2.Response{body: %{"error" => error}}}), do: "token_#{safe_code(error)}"
+  defp failure_code({:token_exchange, %OAuth2.Response{status_code: status}}), do: "token_http_#{status}"
+  defp failure_code({:token_exchange, %OAuth2.Error{reason: reason}}), do: "token_#{safe_code(reason)}"
   defp failure_code({:token_exchange, _}), do: "token"
   defp failure_code({:google_user_info, status}), do: "userinfo_#{status}"
   defp failure_code(:google_user_info_request_failed), do: "userinfo"
   defp failure_code({:account, %{field: field}}), do: "account_#{field}"
   defp failure_code({:session, _}), do: "session"
   defp failure_code(_), do: "unknown"
+
+  defp safe_code(value) when is_binary(value) or is_atom(value),
+    do: value |> to_string() |> String.replace(~r/[^A-Za-z0-9_]/, "_") |> String.slice(0, 40)
+
+  defp safe_code(value), do: value |> inspect() |> safe_code()
 
   def google_session(conn, %{"ticket" => ticket}) do
     case Accounts.rotate_session_token(ticket, client_ip(conn), user_agent(conn)) do
