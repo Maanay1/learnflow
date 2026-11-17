@@ -13,7 +13,7 @@ defmodule Learnflow.Application do
         start: {Agent, :start_link, [fn -> %{} end, [name: Learnflow.Messaging.Online]]}
       },
       LearnflowWeb.Endpoint
-    ]
+    ] ++ Learnflow.KeepAwake.children()
     |> maybe_add_oban_starter()
     |> maybe_add_storage_setup()
 
