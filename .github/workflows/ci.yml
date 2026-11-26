@@ -33,7 +33,9 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - run: apk add --no-cache build-base git ffmpeg tar
+      - name: System packages
+        working-directory: /
+        run: apk add --no-cache build-base git ffmpeg tar
       - uses: actions/checkout@v4
       - name: Fresh deps (the repo contains a stale _build/deps)
         run: rm -rf _build deps
