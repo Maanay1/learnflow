@@ -72,6 +72,13 @@ a,
   user-select: none;
 }
 
+:where(input:not([type="checkbox"], [type="radio"], [type="range"]), textarea, select) {
+  border: 0;
+  border-radius: 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 button {
   border: 0;
   background: transparent;

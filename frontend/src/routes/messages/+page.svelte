@@ -1,8 +1,8 @@
 <script>
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import { page } from '$app/stores';
-  import { goto } from '$app/navigation';
-  import { ArrowLeft, Info, Search, Send, UserPlus, UsersRound } from 'lucide-svelte';
+  import { goto, pushState } from '$app/navigation';
+  import { ArrowLeft, Info, Play, Search, Send, UserPlus, UsersRound } from 'lucide-svelte';
   import { messaging, search, videos } from '$lib/api';
   import { showBrowserNotification } from '$lib/browserNotifications';
   import { connectConversation } from '$lib/socket';
@@ -12,6 +12,7 @@
 
   let conversations = [], messagesByConversation = {}, activeId = '', query = '', draft = '', channel;
   let loading = true, pendingSharedVideo, error = '', typingName = '', typingTimer, sendTypingTimer, mobile = false;
+  let listEl, chatInHistory = false;
   let onlineIds = new Set(), findOpen = false, groupOpen = false, profileOpen = false, addMemberOpen = false, userQuery = '', userResults = [], groupName = '', selected = [], searchTimer;
   $: currentUser = $authStore.user;
   $: activeConversation = conversations.find((item) => item.id === activeId);
@@ -19,33 +20,55 @@
   $: filtered = conversations.filter((item) => item.name?.toLowerCase().includes(query.toLowerCase()));
   $: if (!$authStore.loading && !$authStore.authenticated) goto('/login');
   $: { userQuery; clearTimeout(searchTimer); searchTimer = setTimeout(findUsers, 350); }
+  // On phones an open chat is full-screen (like Telegram): no tab bar covering the composer.
+  $: if (typeof document !== 'undefined') document.body.classList.toggle('chat-fullscreen', Boolean(activeConversation));
+
+  // Phone back button / swipe-back closes the open chat instead of leaving the page.
+  function onPopState() {
+    if (chatInHistory) { chatInHistory = false; closeConversation(); }
+  }
 
   onMount(async () => {
+    window.addEventListener('popstate', onPopState);
     try {
       mobile = window.matchMedia('(max-width: 700px)').matches;
       const sharedSlug = $page.url.searchParams.get('share_video');
       if (sharedSlug) pendingSharedVideo = (await videos.detail(sharedSlug)).video;
       conversations = (await messaging.conversations()).conversations || [];
       const requested = $page.url.searchParams.get('conversation_id') || $page.url.searchParams.get('conversation');
-      if (conversations.some((item) => item.id === requested)) await openConversation(requested);
-      else if (conversations.length && !mobile) await openConversation(conversations[0].id);
+      if (conversations.some((item) => item.id === requested)) await openConversation(requested, false);
+      else if (conversations.length && !mobile) await openConversation(conversations[0].id, false);
     } catch (requestError) { if (requestError.status !== 401) error = 'Не удалось загрузить сообщения'; }
     finally { loading = false; }
   });
-  onDestroy(() => channel?.disconnect?.());
+  onDestroy(() => {
+    if (typeof window !== 'undefined') window.removeEventListener('popstate', onPopState);
+    channel?.disconnect?.();
+    if (typeof document !== 'undefined') document.body.classList.remove('chat-fullscreen');
+  });
+
+  async function scrollToBottom() {
+    await tick();
+    if (listEl) listEl.scrollTop = listEl.scrollHeight;
+  }
+  // Tell the tab bar to recount unread chats.
+  const unreadChanged = () => window.dispatchEvent(new CustomEvent('jarq:unread-changed'));
 
   async function findUsers() {
     if (!userQuery.trim()) return userResults = [];
     try { userResults = (await search.users(userQuery)).users?.filter((user) => user.id !== currentUser?.id) || []; }
     catch { userResults = []; }
   }
-  async function openConversation(id) {
+  async function openConversation(id, remember = true) {
+    if (mobile && remember && !chatInHistory) { pushState('', { chat: id }); chatInHistory = true; }
     activeId = id;
     typingName = '';
     channel?.disconnect?.();
     messagesByConversation = { ...messagesByConversation, [id]: (await messaging.messages(id)).messages || [] };
+    scrollToBottom();
     await messaging.read(id).catch(() => {});
     conversations = conversations.map((item) => item.id === id ? { ...item, unread_count: 0 } : item);
+    unreadChanged();
     channel = connectConversation(id, {
       onJoin(payload) { onlineIds = new Set(payload.online_user_ids || []); },
       onPresence(payload) {
@@ -65,6 +88,7 @@
       onMessage(message) {
         const list = messagesByConversation[id] || [];
         if (!list.some((item) => item.id === message.id)) messagesByConversation = { ...messagesByConversation, [id]: [...list, message] };
+        scrollToBottom();
         if (message.sender_id !== currentUser?.id) {
           showBrowserNotification(message.sender?.display_name || message.sender?.username || 'JARQ', { body: message.body || 'Новое сообщение', data: { url: `/messages?conversation_id=${id}` } });
           channel?.read?.();
@@ -85,6 +109,7 @@
     channel?.typing(false);
     const optimistic = { id: `local-${Date.now()}`, sender_id: currentUser.id, sender: currentUser, body, shared_video: pendingSharedVideo, inserted_at: new Date().toISOString() };
     messagesByConversation = { ...messagesByConversation, [activeId]: [...activeMessages, optimistic] };
+    scrollToBottom();
     try {
       const payload = pendingSharedVideo ? { body, shared_video_id: pendingSharedVideo.id } : { body };
       pendingSharedVideo = null;
@@ -130,6 +155,14 @@
   function isAdmin(conversation) { return conversation?.members?.some((member) => member.user_id === currentUser?.id && member.role === 'admin'); }
   function memberCount(conversation) { return conversation?.members?.length || 0; }
   function wasRead(message) { return activeConversation?.members?.some((member) => member.user_id !== currentUser?.id && member.last_read_at && new Date(member.last_read_at) >= new Date(message.inserted_at)); }
+  const dayKey = (value) => new Date(value).toDateString();
+  function dayLabel(value) {
+    const date = new Date(value), today = new Date(), yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+    if (date.toDateString() === today.toDateString()) return 'Сегодня';
+    if (date.toDateString() === yesterday.toDateString()) return 'Вчера';
+    return new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'long', ...(date.getFullYear() !== today.getFullYear() ? { year: 'numeric' } : {}) }).format(date);
+  }
   const time = (value) => value ? new Intl.DateTimeFormat('ru', { hour: '2-digit', minute: '2-digit' }).format(new Date(value)) : '';
 </script>
 
@@ -145,14 +178,14 @@
   <main>
     {#if activeConversation}
       <header>
-        <button class="back" aria-label="Назад к чатам" on:click={closeConversation}><ArrowLeft size={22}/></button>
+        <button class="back" aria-label="Назад к чатам" on:click={() => (chatInHistory ? history.back() : closeConversation())}><ArrowLeft size={22}/></button>
         <button class="chat-person" on:click={() => (profileOpen = true)}>
           <span class="avatar-wrap"><Avatar user={conversationUser(activeConversation)} size={42}/>{#if isOnline(activeConversation)}<i></i>{/if}</span>
           <span><strong>{activeConversation.name}</strong>{#if typingName}<small>{typingName} печатает...</small>{:else if activeConversation.type === 'group'}<small>{memberCount(activeConversation)} участников</small>{:else if isOnline(activeConversation)}<small>онлайн</small>{/if}</span>
         </button>
         <button class="info" aria-label="Информация" on:click={() => (profileOpen = true)}><Info size={20}/></button>
       </header>
-      <div class="list">{#if activeMessages.length}{#each activeMessages as message}<article class:own={message.sender_id === currentUser?.id}>{#if message.sender_id !== currentUser?.id}<Avatar user={message.sender} size={30}/>{/if}<div>{#if message.shared_video}<a class="shared" href={`/video/${message.shared_video.slug}`}>{message.shared_video.title}</a>{/if}{#if message.body}<p>{message.body}</p>{/if}<small>{time(message.inserted_at)} {#if message.sender_id === currentUser?.id}<b>{wasRead(message) ? '✓✓' : '✓'}</b>{/if}</small></div></article>{/each}{:else}<p class="empty">Нет сообщений</p>{/if}</div>
+      <div class="list" bind:this={listEl}>{#if activeMessages.length}{#each activeMessages as message, index}{#if index === 0 || dayKey(message.inserted_at) !== dayKey(activeMessages[index - 1].inserted_at)}<p class="day">{dayLabel(message.inserted_at)}</p>{/if}<article class:own={message.sender_id === currentUser?.id}>{#if message.sender_id !== currentUser?.id}<Avatar user={message.sender} size={30}/>{/if}<div>{#if message.shared_video}<a class="shared" href={`/video/${message.shared_video.slug}`}><span class="shared-icon"><Play size={16} fill="currentColor"/></span><span><small>Видео</small><strong>{message.shared_video.title}</strong></span></a>{/if}{#if message.body}<p>{message.body}</p>{/if}<small>{time(message.inserted_at)} {#if message.sender_id === currentUser?.id}<b>{wasRead(message) ? '✓✓' : '✓'}</b>{/if}</small></div></article>{/each}{:else}<p class="empty">Нет сообщений</p>{/if}</div>
       {#if pendingSharedVideo}<div class="pending">Видео: {pendingSharedVideo.title}<button on:click={() => (pendingSharedVideo = null)}>Убрать</button></div>{/if}
       {#if error}<p class="error">{error}</p>{/if}
       <form on:submit|preventDefault={send}><input bind:value={draft} on:input={typing} placeholder="Написать сообщение..." /><button aria-label="Отправить"><Send size={20}/></button></form>
@@ -204,5 +237,5 @@
   </div>
 </Modal>
 <style>
-  :global(main.main){padding-left:0}.page{display:grid;height:100vh;grid-template-columns:320px minmax(0,1fr);background:var(--bg)}aside{overflow:auto;border-right:1px solid var(--border);background:#121214;padding:16px}.aside-head{display:flex;align-items:center;gap:8px;margin-bottom:14px}.aside-head h1{margin-right:auto;font-size:26px;font-weight:900}.aside-head button{color:var(--primary-text)}.search,form{display:flex;align-items:center;gap:9px;border:1px solid var(--border);border-radius:999px;background:var(--surface);padding:0 13px;color:var(--text-3)}.search{height:44px;margin-bottom:12px}.search input,form input{min-width:0;flex:1;background:transparent;color:white;outline:0}.conversation{display:grid;width:100%;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;border-radius:12px;padding:10px;text-align:left}.conversation.active,.conversation:hover{background:var(--primary-soft)}.conversation>span:not(.avatar-wrap),.chat-person>span:last-child{display:grid;gap:3px;min-width:0}.conversation small,header small{overflow:hidden;color:var(--text-2);text-overflow:ellipsis;white-space:nowrap}.conversation>b{display:grid;width:22px;height:22px;place-items:center;border-radius:99px;background:var(--primary);font-size:11px;color:var(--on-primary)}.avatar-wrap{position:relative;display:inline-flex}.avatar-wrap i{position:absolute;right:0;bottom:1px;width:11px;height:11px;border:2px solid var(--surface);border-radius:50%;background:#22c55e}main{display:grid;min-width:0;grid-template-rows:auto minmax(0,1fr) auto auto auto;background:var(--bg)}header{display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);background:var(--surface);padding:14px 18px}.chat-person{display:flex;min-width:0;flex:1;align-items:center;gap:10px;text-align:left}.info{display:grid;width:38px;height:38px;place-items:center;border-radius:50%;color:var(--primary-text)}.info:hover{background:var(--primary-soft)}.back{display:none;color:var(--text-2)}.list{display:flex;overflow:auto;flex-direction:column;gap:10px;padding:18px}article{display:flex;max-width:70%;gap:8px;align-items:end}article.own{align-self:end}article>div{border-radius:16px 16px 16px 4px;background:var(--surface-2);padding:10px 12px}.own>div{border-radius:16px 16px 4px 16px;background:var(--primary);color:var(--on-primary)}article small{display:block;margin-top:4px;color:#d4d4d4;font-size:11px;text-align:right}article small b{color:#e0ddff}.shared{display:block;margin-bottom:5px;color:var(--primary-text);font-weight:800}.pending,.error{padding:8px 18px;color:var(--text-2)}.pending button,.link{margin-left:10px;color:var(--primary-text)}.error{color:#f87171}form{height:48px;margin:12px 18px}form button{color:var(--primary-text)}.empty{padding:30px 6px;color:var(--text-2);text-align:center}.center{place-self:center}.users{display:grid;max-height:300px;gap:5px;overflow:auto}.users button,.members a{display:flex;align-items:center;gap:10px;border-radius:10px;padding:8px;text-align:left}.users button:hover,.members a:hover,.selected-user{background:#27272a}.users span,.members span{display:grid}.users small,.members small{color:#a3a3a3}.group-name{width:100%;margin-bottom:10px;border:1px solid #333;border-radius:10px;background:#111;padding:11px;color:white}.member-count{margin:-3px 0 8px;color:var(--text-2);font-size:12px}.selected{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}.selected button{border-radius:99px;background:#312e81;padding:5px 9px;font-size:12px}.create{width:100%;margin-top:12px;border-radius:10px;background:var(--accent);padding:11px;font-weight:800;text-align:center;color:var(--on-primary)}.create:disabled{opacity:.4}.chat-profile{display:grid;justify-items:center;gap:8px;text-align:center}.chat-profile h2{font-size:22px}.chat-profile p,.chat-profile small{color:var(--text-2)}.members{display:grid;width:100%;max-height:260px;overflow:auto;gap:4px;margin-top:8px;text-align:left}.profile-link{display:block}@media(max-width:700px){:global(main.main){min-height:0}.page{height:calc(100dvh - 73px);grid-template-columns:1fr}aside{border-right:0;padding:15px 14px}.aside-head h1{font-size:24px}.conversation{padding:11px 8px}.conversation>span:not(.avatar-wrap),.conversation>b{display:grid}main{display:none}.chat-open aside{display:none}.chat-open main{display:grid}.back{display:grid;place-items:center}.list{padding:14px 12px}article{max-width:86%}form{height:50px;margin:8px 10px 12px;background:var(--surface-2)}header{padding:11px 12px}.center{display:none}}
+  :global(main.main){padding-left:0}.page{display:grid;height:100vh;grid-template-columns:320px minmax(0,1fr);background:var(--bg)}aside{overflow:auto;border-right:1px solid var(--border);background:#121214;padding:16px}.aside-head{display:flex;align-items:center;gap:8px;margin-bottom:14px}.aside-head h1{margin-right:auto;font-size:26px;font-weight:900}.aside-head button{color:var(--primary-text)}.search,form{display:flex;align-items:center;gap:9px;border:1px solid var(--border);border-radius:999px;background:var(--surface);padding:0 13px;color:var(--text-3)}.search{height:44px;margin-bottom:12px}.search input,form input{min-width:0;flex:1;background:transparent;color:white;outline:0}.conversation{display:grid;width:100%;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;border-radius:12px;padding:10px;text-align:left}.conversation.active,.conversation:hover{background:var(--primary-soft)}.conversation>span:not(.avatar-wrap),.chat-person>span:last-child{display:grid;gap:3px;min-width:0}.conversation small,header small{overflow:hidden;color:var(--text-2);text-overflow:ellipsis;white-space:nowrap}.conversation>b{display:grid;width:22px;height:22px;place-items:center;border-radius:99px;background:var(--primary);font-size:11px;color:var(--on-primary)}.avatar-wrap{position:relative;display:inline-flex}.avatar-wrap i{position:absolute;right:0;bottom:1px;width:11px;height:11px;border:2px solid var(--surface);border-radius:50%;background:#22c55e}main{display:grid;min-width:0;grid-template-rows:auto minmax(0,1fr) auto auto auto;background:var(--bg)}header{display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);background:var(--surface);padding:14px 18px}.chat-person{display:flex;min-width:0;flex:1;align-items:center;gap:10px;text-align:left}.info{display:grid;width:38px;height:38px;place-items:center;border-radius:50%;color:var(--primary-text)}.info:hover{background:var(--primary-soft)}.back{display:none;color:var(--text-2)}.list{display:flex;overflow:auto;flex-direction:column;gap:10px;padding:18px}article{display:flex;max-width:70%;gap:8px;align-items:end}article.own{align-self:end}article>div{border-radius:16px 16px 16px 4px;background:var(--surface-2);padding:10px 12px}.own>div{border-radius:16px 16px 4px 16px;background:var(--primary);color:var(--on-primary)}article small{display:block;margin-top:4px;color:#d4d4d4;font-size:11px;text-align:right}article small{color:var(--text-3)}.own small{color:var(--on-primary);opacity:.65}article small b{color:inherit}.shared{display:flex;align-items:center;gap:9px;min-width:170px;margin-bottom:6px;border-radius:11px;background:#0000002e;padding:8px 10px;color:inherit}.shared>span:last-child{display:grid;min-width:0}.shared small{margin:0;color:inherit;opacity:.75;text-align:left}.shared strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.shared-icon{display:grid;flex:none;width:30px;height:30px;place-items:center;border-radius:50%;background:var(--primary);color:var(--on-primary)}.own .shared-icon{background:var(--on-primary);color:var(--primary)}.day{align-self:center;margin:6px 0 2px;border-radius:99px;background:var(--surface-2);padding:4px 11px;color:var(--text-2);font-size:12px;font-weight:700}.pending,.error{padding:8px 18px;color:var(--text-2)}.pending button,.link{margin-left:10px;color:var(--primary-text)}.error{color:#f87171}form{height:48px;margin:12px 18px}form button{color:var(--primary-text)}.empty{padding:30px 6px;color:var(--text-2);text-align:center}.center{place-self:center}.users{display:grid;max-height:300px;gap:5px;overflow:auto}.users button,.members a{display:flex;align-items:center;gap:10px;border-radius:10px;padding:8px;text-align:left}.users button:hover,.members a:hover,.selected-user{background:#27272a}.users span,.members span{display:grid}.users small,.members small{color:#a3a3a3}.group-name{width:100%;margin-bottom:10px;border:1px solid #333;border-radius:10px;background:#111;padding:11px;color:white}.member-count{margin:-3px 0 8px;color:var(--text-2);font-size:12px}.selected{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}.selected button{border-radius:99px;background:#312e81;padding:5px 9px;font-size:12px}.create{width:100%;margin-top:12px;border-radius:10px;background:var(--accent);padding:11px;font-weight:800;text-align:center;color:var(--on-primary)}.create:disabled{opacity:.4}.chat-profile{display:grid;justify-items:center;gap:8px;text-align:center}.chat-profile h2{font-size:22px}.chat-profile p,.chat-profile small{color:var(--text-2)}.members{display:grid;width:100%;max-height:260px;overflow:auto;gap:4px;margin-top:8px;text-align:left}.profile-link{display:block}@media(max-width:700px){:global(main.main){min-height:0}.page{height:calc(100dvh - 73px);grid-template-columns:1fr}aside{border-right:0;padding:15px 14px}.aside-head h1{font-size:24px}.conversation{padding:11px 8px}.conversation>span:not(.avatar-wrap),.conversation>b{display:grid}main{display:none}.chat-open aside{display:none}.chat-open main{position:fixed;inset:0;z-index:70;display:grid;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}:global(body.chat-fullscreen .mobile-nav){display:none}.back{display:grid;place-items:center}.list{padding:14px 12px}article{max-width:86%}form{height:50px;margin:8px 10px 12px;background:var(--surface-2)}header{padding:11px 12px}.center{display:none}}
 </style>

@@ -50,7 +50,13 @@
   }
 
   $: if ($authStore.authenticated && !loadedUnread) loadUnread();
-  onMount(loadUnread);
+  // Refresh the badge after reading chats / moving between pages.
+  $: if (path && loadedUnread) loadUnread();
+  onMount(() => {
+    loadUnread();
+    window.addEventListener('jarq:unread-changed', loadUnread);
+    return () => window.removeEventListener('jarq:unread-changed', loadUnread);
+  });
 </script>
 
 <aside class="sidebar desktop-sidebar">

@@ -1,6 +1,7 @@
 import { Socket } from 'phoenix';
 
-const WS_URL = import.meta.env.VITE_WS_URL || 'wss://learnflow-api-1eef.onrender.com/socket';
+// Vercel can't proxy websockets, so production talks to Render directly; dev goes through the Vite proxy.
+const WS_URL = import.meta.env.VITE_WS_URL || (import.meta.env.DEV ? '/socket' : 'wss://learnflow-api-1eef.onrender.com/socket');
 
 function sessionToken() {
   return document.cookie.split('; ').find((row) => row.startsWith('session_token='))?.split('=')[1] || '';

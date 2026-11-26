@@ -80,6 +80,7 @@
 
   const size = (bytes) => `${(bytes / 1024 / 1024).toFixed(1)} МБ`;
 </script>
+<svelte:head><title>Загрузить видео | JARQ</title></svelte:head>
 
 <section class="shell max-w-3xl py-10">
   <h1>Загрузить видео</h1>

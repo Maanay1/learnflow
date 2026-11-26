@@ -1,0 +1,65 @@
+name: Tests
+
+# Runs on every push and pull request, before Render/Vercel deploy the change.
+# Render: Settings → Build & Deploy → Auto-Deploy = "After CI Checks Pass"
+# makes the backend deploy only when this workflow is green.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container: hexpm/elixir:1.16.3-erlang-26.2.5.21-alpine-3.22.8
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      MIX_ENV: test
+      TEST_DATABASE_URL: ecto://postgres:postgres@postgres/learnflow_test
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - run: apk add --no-cache build-base git ffmpeg tar
+      - uses: actions/checkout@v4
+      - name: Fresh deps (the repo contains a stale _build/deps)
+        run: rm -rf _build deps
+      - uses: actions/cache@v4
+        with:
+          path: |
+            backend/deps
+            backend/_build
+          key: mix-${{ hashFiles('backend/mix.lock') }}
+      - run: mix local.hex --force && mix local.rebar --force
+      - run: mix deps.get
+      - run: mix compile
+      - run: mix test
+
+  frontend:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Fresh install (the repo contains a committed node_modules)
+        run: rm -rf node_modules && npm ci
+      - run: npm run build

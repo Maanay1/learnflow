@@ -1,7 +1,7 @@
 <script>
   import { createEventDispatcher, onMount } from 'svelte';
   import { videos } from '$lib/api';
-  import { Maximize, Pause, Play, Volume2 } from 'lucide-svelte';
+  import { Maximize, Pause, Play, Volume2, VolumeX } from 'lucide-svelte';
 
   export let video;
   export let videoId;
@@ -17,6 +17,18 @@
   let current = 0;
   let duration = 0;
   let volume = 0.9;
+  let rate = 1;
+  let muted = false;
+  const rates = [1, 1.25, 1.5, 2];
+  function nextRate() {
+    rate = rates[(rates.indexOf(rate) + 1) % rates.length];
+    videoEl.playbackRate = rate;
+  }
+  function toggleMute() {
+    muted = !muted;
+    videoEl.muted = muted;
+  }
+  const clock = (seconds) => `${Math.floor((seconds || 0) / 60)}:${String(Math.floor((seconds || 0) % 60)).padStart(2, '0')}`;
   let progressTimer;
   const dispatch = createEventDispatcher();
 
@@ -112,12 +124,12 @@
     </div>
     <div class="control-row">
       <button aria-label="Play pause" on:click={togglePlay}>{#if paused}<Play size={18} fill="currentColor" />{:else}<Pause size={18} fill="currentColor" />{/if}</button>
-      <span>{Math.floor(current / 60)}:{String(Math.floor(current % 60)).padStart(2, '0')} / {Math.floor(duration / 60)}:{String(Math.floor(duration % 60)).padStart(2, '0')}</span>
-      <button on:click={() => (videoEl.playbackRate = videoEl.playbackRate === 1 ? 1.5 : 1)}> {videoEl?.playbackRate || 1}x </button>
-      <label>
-        <Volume2 size={18} />
-        <input type="range" min="0" max="1" step="0.05" bind:value={volume} on:input={() => (videoEl.volume = volume)} />
-      </label>
+      <span class="time">{clock(current)} / {clock(duration)}</span>
+      <button class="rate" aria-label="Скорость" on:click={nextRate}>{rate}x</button>
+      <span class="volume">
+        <button aria-label={muted ? 'Включить звук' : 'Выключить звук'} on:click={toggleMute}>{#if muted}<VolumeX size={18} />{:else}<Volume2 size={18} />{/if}</button>
+        <input aria-label="Громкость" type="range" min="0" max="1" step="0.05" bind:value={volume} on:input={() => (videoEl.volume = volume)} />
+      </span>
       <button aria-label="Fullscreen" on:click={fullscreen}><Maximize size={18} /></button>
     </div>
   </div>
@@ -156,10 +168,10 @@
 
   .controls {
     position: absolute;
-    right: 16px;
-    bottom: 14px;
-    left: 16px;
-    padding-top: 64px;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    padding: 56px 14px 12px;
     background: linear-gradient(to top, rgba(0,0,0,0.86), transparent);
   }
 
@@ -215,12 +227,30 @@
     color: #fff;
   }
 
-  .control-row label {
+  .time {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .volume {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     margin-left: auto;
   }
 
-  .control-row input {
+  .volume input {
     width: 72px;
     accent-color: var(--primary);
+  }
+
+  @media (max-width: 520px) {
+    .big-play { width: 64px; height: 64px; }
+    .big-play :global(svg) { width: 34px; height: 34px; }
+    .controls { padding: 40px 10px 8px; }
+    .control-row { gap: 7px; margin-top: 8px; font-size: 12px; }
+    .control-row button { padding: 6px 8px; }
+    /* Phones use hardware volume buttons; keep only the mute toggle. */
+    .volume input { display: none; }
   }
 </style>

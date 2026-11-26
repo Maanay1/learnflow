@@ -30,7 +30,7 @@
     listUsers = (await social[kind](profile.username)).users || [];
     listOpen = true;
   }
-  const joined = (value) => value ? new Intl.DateTimeFormat('ru', { month: 'long', year: 'numeric' }).format(new Date(value)) : '';
+  const joined = (value) => value ? new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(value)).replace(/^\d+\s/, '') : '';
 </script>
 <svelte:head><title>{profile?.display_name || profile?.username || 'Профиль'} | JARQ</title></svelte:head>
 <section class="shell max-w-5xl py-8">

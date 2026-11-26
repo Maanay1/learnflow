@@ -31,11 +31,12 @@
     location.href = url;
   }
 </script>
+<svelte:head><title>Обзор | JARQ</title></svelte:head>
 
 <section class="shell space-y-8 py-8">
-  <h1 class="text-3xl font-black">Dashboard</h1>
+  <h1 class="text-3xl font-black">Обзор</h1>
   <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-    {#each [['Просмотрено', stats.total_watched], ['Завершено', stats.total_completed], ['Streak 🔥', stats.current_streak], ['Подписчики', stats.followers_count]] as card}
+    {#each [['Просмотрено', stats.total_watched], ['Завершено', stats.total_completed], ['Дней подряд 🔥', stats.current_streak], ['Подписчики', stats.followers_count]] as card}
       <div class="card p-5"><p class="text-[#a3a3a3]">{card[0]}</p><p class="mt-2 text-3xl font-black">{card[1] || 0}</p></div>
     {/each}
   </div>
